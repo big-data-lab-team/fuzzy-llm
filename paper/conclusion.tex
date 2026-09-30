@@ -1,0 +1,53 @@
+\section{Discussion and conclusion}
+\label{sec:conclusion}
+
+The rounding rule, when treated as a site-specific design variable rather than a
+network-wide constant, affects perplexity in opposite directions depending on
+where it is applied.
+Inside the feedforward network, SR outperforms RN by a wide margin at low
+precision, reaching an $11.6\times$ perplexity reduction at $t=5$.
+Cumulatively, reducing all six MLP down-projections to $t=6$ holds perplexity
+degradation to $6.0\%$ over the full-precision baseline under SR, against $27\%$
+under RN ($66.24$ against $79.64$ perplexity).
+At the language-model head, the ranking reverses and RN yields substantially
+lower excess loss.
+While \citet{chmiel2023accurate} found that RN is generally preferred in the
+forward pass, and contemporary low-precision formats such as NVIDIA's
+NVFP4~\citep{nvidia2025nvfp4} employ SR selectively for gradient casts during
+training, our results demonstrate that operation-level granularity is equally
+consequential at inference: scoping SR specifically to the long reductions of the
+MLP down-projections mitigates accumulated drift, while retaining RN at the
+output softmax avoids the severe variance penalty that SR incurs there.
+These site-specific preferences also enable mixed-rounding recipes: assigning SR
+to the attention and MLP down-projections and RN to the remaining sites yields relative
+perplexity reductions of $3.04\%$--$28.17\%$ over matched all-RN configurations
+across the three tested configurations.
+
+\Cref{sec:analysis} identifies which quantities determine the site-level
+trade-off.
+An exact decomposition separates the signed shift of the target logit from the
+relative KL distortion of competing classes; a second-order expansion further
+splits the distortion into a drift-curvature term $Q$ and a variance penalty
+$V$.
+At the MLP down-projection, RN's deterministic errors accumulate into a
+non-uniform logit shift whose curvature cost exceeds SR's variance penalty,
+which is small because the propagated SR noise is predominantly a uniform
+vocabulary shift that the softmax ignores.
+At the language-model head, SR's fluctuation $\xi$ is genuinely non-uniform and is
+penalized directly by cross-entropy.
+The decomposition establishes that the comparative advantage of
+either rounding rule is governed not by raw error magnitude, but by whether the
+resulting perturbations propagate as a uniform vocabulary shift or disperse as
+non-uniform distortion across logits.
+
+Establishing the broader generality of this trade-off requires evaluating the
+decomposition across larger models, varied architectures, and diverse downstream
+tasks.
+Porting PRISM directly to GPUs (where an early prototype is in development)
+and incorporating exponent-range checks into variable-precision frameworks
+will be essential steps to scale this analysis to modern billion-parameter
+architectures and complete narrow hardware formats.
+
+\paragraph{Reproducibility.}
+All evaluation pipelines, experiment scripts, and aggregated data are publicly available at \githubrepo.
+

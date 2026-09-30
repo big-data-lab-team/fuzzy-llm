@@ -1,0 +1,15 @@
+Date: 2026-09-24T20:34:21Z
+Host: node05
+Job: 368140
+Ubuntu clang version 20.1.2 (0ubuntu1~24.04.3)
+SIF verificarlo (PRISM build): verificarlo 2.5.1
+Patched verificarlo (MCA build): verificarlo 2.5.1
+PRISM calls:
+prism::sr::vector::static_dispatch::fixed::addf32x16 prism::sr::vector::static_dispatch::fixed::addf64x8 prism::sr::vector::static_dispatch::fixed::divf32x16 prism::sr::vector::static_dispatch::fixed::divf64x8 prism::sr::vector::static_dispatch::fixed::fmaf32x16 prism::sr::vector::static_dispatch::fixed::fmaf64x8 prism::sr::vector::static_dispatch::fixed::mulf32x16 prism::sr::vector::static_dispatch::fixed::mulf64x8 
+MCA calls:
+ U _16xfloatadd_avx512  U _16xfloatdiv_avx512  U _16xfloatfma_avx512  U _16xfloatmul_avx512  U _8xdoubleadd_avx512  U _8xdoublediv_avx512  U _8xdoublefma_avx512  U _8xdoublemul_avx512  U _doubleadd  U _doublediv  U _doublemul 
+MCA backend loads per process: 1
+=== fma perturbation check ===
+binary32 fma: 16519/65536 elements differ, max 1 ulp
+binary64 fma: 16224/65536 elements differ, max 1 ulp
+BUILD_OK

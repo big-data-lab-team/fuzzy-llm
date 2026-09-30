@@ -1,0 +1,384 @@
+\section{Experiments}
+\label{sec:experiments}
+
+\Cref{sec:analysis} bounds the forward error of a single reduction and
+decomposes its effect on the loss at the output softmax. Neither result
+predicts the perplexity ordering of SR and RN once rounding errors propagate
+through the network: the bounds are worst-case and per reduction, and the loss
+decomposition is evaluated one site at a time. This section measures that
+ordering on DistilGPT-2 at matched significand precision, with the scope of
+reduced precision ranging from the whole network to one projection in one block
+(\cref{tab:sweeps}). The sweeps address three questions: which rounding rule
+gives lower perplexity at each site, how per-site effects combine across sites
+and across depth, and whether the per-site preferences yield a mixed-rounding
+assignment that improves on RN at identical per-site precisions.
+
+\subsection{Experimental setup}
+\label{sec:exp-setup}
+
+\paragraph{Model and evaluation benchmark.}
+We evaluate the public \code{distilbert/distilgpt2} checkpoint
+\citep{distilgpt2modelcard,wolf2020transformers}. The architecture retains the
+layer widths of GPT-2 small ($d_{\rm model} = 768$, $d_{\rm ff} = 3072$, $H =
+  12$ heads, $d_{\rm head} = 64$, vocabulary $V = 50257$, as illustrated in
+\cref{fig:architecture}) and distills the depth to six blocks. It therefore has
+the reduction lengths that enter the bounds of \cref{sec:analysis-mlp}:
+$n=768$ for \code{attn\_c\_attn}, \code{attn\_c\_proj}, and \code{mlp\_c\_fc},
+and $n=3072$ for \code{mlp\_c\_proj}. Six blocks keep per-operation software
+emulation tractable. All evaluations use the pretrained weights without
+fine-tuning, calibration, or quantization-aware adjustment, so that
+configurations differ only in the arithmetic under test.
+
+Evaluation uses the WikiText-2 test split \citep{merity2017pointer}. The harness
+selects the leading $1\%$ of lines, joins them with double newlines, tokenizes
+the resulting text, and evaluates its first $1024$ tokens. These are divided
+into four non-overlapping contexts of $256$ tokens, with context reset between
+them. Each context contributes $255$ next-token targets, giving $1020$ scored
+positions. Perplexity is the exponential of the mean cross-entropy over these
+positions; the PRISM RN reference at \code{binary32} significand precision
+($t=24$) is $\mathrm{PPL}_0 = 62.51$. When effects are compared or summed, we
+also report the excess loss $\ell = \ln(\mathrm{PPL}/\mathrm{PPL}_0)$ in nats,
+which equals the increase in mean cross-entropy over the $1020$ positions and is
+the quantity decomposed in \cref{eq:head-full-comparison}.
+
+\paragraph{Instrumented arithmetic and scoping.}
+\label{sec:exp-scoping}
+Inference is executed within Fuzzy PyTorch \citep{gonzalezpepe2026fuzzy}. During
+the framework's compilation, the Verificarlo compiler
+pass~\citep{denis2016verificarlo} intercepts native floating-point operations
+and redirects them to PRISM's vectorized C++ backend (\cref{sec:prism}).
+Instrumented operations within the target scope are rounded to a virtual
+significand precision $t \le 24$ using either SR or untied RN, in which half-ULP
+ties round away from zero rather than to even (\cref{sec:prism}). All SR--RN
+comparisons in this section use untied RN and not IEEE round-to-nearest with
+ties-to-even (RNE) at reduced precision. The two differ only on exact ties. RN
+introduces no randomness, and repeated RN runs are bitwise reproducible.
+
+The harness attaches PyTorch forward pre-hooks that set precision $t$ and the
+rounding mode immediately before the target module executes, and forward
+post-hooks that restore $t = 24$ under RN on exit. Inference runs in PyTorch
+eager mode without cross-module operator fusion. Every operation outside the
+target scope, including the final loss and perplexity computation, runs at
+$t=24$ under RN, so an SR run and its paired RN control differ only in the
+rounding rule applied within the target scope.
+
+The component and sublayer sweeps reduce precision at the target in all six
+blocks at once; the depth sweeps reduce it in one block or in a prefix of
+blocks (\cref{tab:sweeps}). The \code{attention} and \code{mlp} scopes cover
+every operation inside the corresponding module of each block: the query--key--value
+and output projections, the score and value products, and the softmax for
+\code{attention}; \code{mlp\_c\_fc}, the GELU, and \code{mlp\_c\_proj} for
+\code{mlp}. The \code{attn\_qkav} scope covers only the products $QK^\top$
+(reduction length $d_{\rm head}=64$) and $AV$ (at most $T=256$), with the
+softmax at $t=24$. The \code{lm\_head} scope is the projection onto the
+vocabulary logits.
+
+\begin{table}[t]
+  \centering
+  \caption{Sweep levels. All levels compare SR and untied RN at matched
+    significand precision $t$; operations outside the target scope run at
+    $t=24$ under RN.}
+  \label{tab:sweeps}
+  \small
+  \begin{tabular}{@{}l >{\raggedright\arraybackslash}p{4.2cm} c >{\raggedright\arraybackslash}p{4.8cm}@{}}
+    \toprule
+    Level & Target scope                                                                  & $t$ swept & Question \\
+    \midrule
+    Global
+          & Whole model
+          & $4\text{--}14$
+          & SR vs. RN comparison under uniform precision                                                         \\
+    Component
+          & \code{attention}, \code{mlp}, \code{lm\_head}, \code{attn\_qkav} (all blocks)
+          & $4\text{--}14$
+          & Site-dependent sensitivity across main modules                                                       \\
+    Sublayer
+          & Four projections \code{attn\_*}, \code{mlp\_*} (all blocks)
+          & $4\text{--}14$
+          & Impact of reduction length ($n=768$ vs.\ $3072$)                                                     \\
+    Depth
+          & \code{mlp\_c\_proj} (single blocks; prefixes $0\text{--}k$)
+          & $4,5,6$
+          & Dependence on position; additivity of per-block effects                                              \\
+    Mixed recipe
+          & SR at output projections, RN elsewhere
+          & $6,7,8$
+          & Mixed rounding versus all-RN at identical per-site precisions                                        \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Statistical protocol.}
+The global, component, sublayer, and depth sweeps use five independent seeds per
+SR configuration, and the mixed-rounding comparison in
+\cref{sec:exp-composition} uses five seeds per mixed configuration. Results are
+reported as sample mean $\pm$ standard deviation; for SR, excess loss is
+averaged over seeds. RN is deterministic at a fixed execution configuration and
+is run once. We define the perplexity gap as $\Delta = \overline{\SR} - \RN$, so
+negative values favor SR. We regard the gap as statistically distinguishable from
+zero when the RN value falls outside the two-sided $95\%$ Student-$t$ confidence
+interval for the SR mean ($df=4$). The evaluated text is fixed, so every
+interval is conditional on the $1020$ scored positions and does not describe
+variation across texts.
+
+\subsection{Results}
+\label{sec:exp-results}
+
+The experiments yield four findings:
+\begin{enumerate}[label=(\roman*),leftmargin=2em]
+  \item \textbf{RN is better under uniform rounding.}
+        Reducing only the language-model head reproduces most of the
+        SR--RN gap, suggesting that the head drives the global preference
+        for RN (\cref{fig:global,fig:component}).
+
+  \item \textbf{The preferred rounding rule depends on the site.}
+        SR gives lower perplexity in the MLP, whereas RN is preferred at
+        the head and attention input projection. The loss decomposition
+        attributes the MLP advantage to reduced drift and the head
+        disadvantage to SR fluctuations
+        (\cref{fig:component,fig:sublayer}).
+
+  \item \textbf{RN loss compounds more strongly across blocks.}
+        For \code{mlp\_c\_proj} at $t=5$--$6$, RN excess loss exceeds
+        the sum of single-block losses more than SR excess loss does.
+        At $t=6$, SR is approximately additive
+        (\cref{fig:cumulative}).
+
+  \item \textbf{Mixed-rounding improves on full RN.}
+        Using SR at the attention and MLP output projections and RN
+        elsewhere lowers perplexity, even with one fewer significand
+        bit at the MLP down-projection
+        (\cref{tab:accuracy-matched-precision}).
+\end{enumerate}
+
+\paragraph{Global uniform-precision sweep.}
+Under uniform precision, RN consistently outperforms SR across the entire
+low-to-moderate precision range, with statistically significant differences at
+every $t \in [4,11]$ (\cref{fig:global}). At $t=8$, perplexity is $97.68$ under
+RN and $139.27\pm3.58$ under SR. Reducing only the head reproduces this gap: the
+SR--RN difference in excess loss is $2.03$ nats globally and $2.27$ nats with
+only \code{lm\_head} reduced at $t=6$, and $0.35$ against $0.37$ nats at $t=8$.
+The RN advantage is therefore consistent with the head's SR fluctuation penalty
+(\cref{sec:analysis-empirical-drift}) dominating the whole-network result. This
+general performance agrees with the forward-pass preference for RN reported by
+\citet{chmiel2023accurate}, establishing RN as the appropriate default for
+global precision reduction.
+
+\begin{figure}[t]
+  \centering
+  \safeincludegraphics{figures/global_sweep.pdf}
+  \caption{Global sweep at uniform precision across all model operations, showing mean perplexity and SR standard deviation on a logarithmic axis. RN's advantage is statistically significant across $t\in[4,11]$.}
+  \label{fig:global}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \safeincludegraphics{figures/component_sweep.pdf}
+  \caption{Per-component sweep across precisions $t \in [4, 14]$. Bands show $\pm 1$ sample SD over five SR seeds; dotted line indicates the full-precision reference ($62.51$).}
+  \label{fig:component}
+\end{figure}
+
+\paragraph{Site performance: MLP versus language-model head.}
+In the MLP, SR gives lower perplexity than RN at every $t\le8$, with
+statistically significant differences (\cref{fig:component}). At $t=6$,
+perplexity is $71.97\pm1.16$ under SR and $137.93$ under RN, a degradation of
+$15\%$ against $121\%$ over the reference. At $t=8$, SR is within $0.3\%$ of the
+reference ($62.69$) and RN within $2.0\%$ ($63.75$). At $t\le5$ both rules more
+than double the reference perplexity (at $t=5$, $175.65$ under SR against
+$2029.83$ under RN); the ordering there is statistically significant but
+concerns configurations that neither rule makes usable.
+
+At the language-model head the ordering reverses: RN gives lower perplexity at
+every $t\in[4,12]$, with statistically significant differences. At $t=8$,
+perplexity is $135.56\pm5.22$ under SR and $93.60$ under RN; at $t=6$,
+$5054\pm464$ against $519.18$. \Cref{sec:analysis-empirical-drift} decomposes
+the head's excess loss at these precisions. Over $t=6,\ldots,9$ the fluctuation
+term $V_{\SR}$ accounts for $100\%$ of SR's excess loss, whereas RN,
+which has no fluctuation, pays only for its non-uniform drift ($2.12$ against
+$4.40$ nats at $t=6$). SR noise injected at the head changes the differences
+between logits, which the cross-entropy penalizes; SR noise injected in the MLP
+reaches the logits predominantly as a uniform shift, to which the softmax is
+invariant.
+
+The \code{attention} module favors SR at $t\le6$ but do not favor any rounding
+mode at higher precisions; at $t\ge7$ the two rules differ by less than $2\%$ of
+the reference (at $t=7$, $64.60\pm0.49$ under SR against $63.42$ under RN).
+Restricted to the score and value products (\code{attn\_qkav}), reduced
+precision raises perplexity by at most $14\%$ at $t=4$ ($71.26\pm1.26$ under SR,
+$65.90$ under RN) and by at most $2.9\%$ at $t\ge5$. These products have the
+shortest reductions in the model ($d_{\rm head}=64$ and at most $T=256$ terms),
+which may explain their small sensitivity to either rule.
+
+The \code{attention} module does not decompose into its parts. At $t=4$, the
+excess losses of \code{attn\_c\_attn}, \code{attn\_c\_proj}, and
+\code{attn\_qkav}, each reduced separately, sum to $1.20$ nats under RN and
+$1.66$ nats under SR, which favors RN; reducing the whole module gives $2.56$
+and $2.29$ nats, which favors SR. At $t=6$ the sums are equal under both rules
+($0.094$ nats), whereas the whole module gives $0.182$ under RN and $0.120$
+under SR.
+
+\begin{figure}[t]
+  \centering
+  \safeincludegraphics{figures/sublayer_sweep.pdf}
+  \caption{Per-sublayer sweep across the four primary projection matrices, with
+    reduction lengths $n$ indicated and perplexity on a shared logarithmic scale.
+    The feedforward down-projection (\code{mlp\_c\_proj}, $n=3072$) exhibits the
+    largest low-precision SR advantage ($\Delta = -1473.15$ at $t=4$).}
+  \label{fig:sublayer}
+\end{figure}
+
+\paragraph{Reduction length and sublayer sensitivity.}
+\Cref{fig:sublayer} separates the four projections, each reduced in all six
+blocks. The MLP down-projection (\code{mlp\_c\_proj}, $n=3072$) has the largest
+SR advantage, statistically significant at every $t\le7$: at $t=6$, perplexity
+is $66.24\pm0.63$ under SR and $79.64$ under RN, a degradation of $6.0\%$
+against $27\%$. Among the three projections with $n=768$, the preferred rule
+depends on the site. The attention input projection (\code{attn\_c\_attn})
+favors RN wherever the difference is statistically significant ($t=4,5,7$; at
+$t=4$, $251.58\pm16.05$ under SR against $154.08$ under RN). The attention
+output projection (\code{attn\_c\_proj}) favors SR at $t=4$--$6$, and the MLP
+input projection (\code{mlp\_c\_fc}) favors SR at $t=5$--$6$; at $t\ge7$ neither
+difference is statistically significant.
+
+The largest SR advantage occurring at the longest reduction is consistent with
+\cref{sec:analysis-mlp}: RN rounding errors can align across the $n$ terms of a
+reduction, whereas SR errors have zero conditional mean, so RN drift can grow
+faster with $n$ than SR fluctuation. The sweep does not isolate $n$, however.
+Only one site has $n=3072$, and it also differs from the others in its input,
+the GELU output, which is bounded below by approximately $-0.17$. The opposite
+preferences of three sites with identical $n=768$ show that factors other than
+$n$, such as the input distribution, the weights, and the downstream
+operations, also determine the ordering.
+
+
+\paragraph{SR's advantage across depth.}
+The cumulative sweep in \cref{fig:cumulative} reduces \code{mlp\_c\_proj} in
+progressively longer block prefixes, from block~$0$ to all six blocks. For every
+tested precision, SR yields statistically significantly lower perplexity than RN
+at every prefix, except $0$ and $0$--$1$ at $t=6$, where the differences are not
+statistically significant.
+
+The advantage of SR becomes more pronounced as more blocks use reduced
+precision. At $t=4$, perplexities are initially close ($83.24$ under SR and
+$85.13$ under RN for block~$0$), but extending the reduction to all six blocks
+increases perplexity by a factor of $5.5$ under SR and $22.7$ under RN. At
+$t=6$, the difference becomes statistically significant from prefix $0$--$2$
+onward, reaching $66.24\pm0.63$ under SR versus $79.64$ under RN with all six
+blocks reduced, as in \cref{fig:sublayer}. These results show that SR limits the
+perplexity degradation from reducing the MLP down-projection across multiple
+blocks. The growing SR--RN gap is consistent with RN introducing systematic drift
+and SR limiting its accumulation across blocks.
+
+This compounding effect illustrates a key structural difference between the
+rounding rules. The deterministic drift introduced by RN in one block acts as a
+correlated error that systematically shifts activations in subsequent blocks. In
+contrast, the noise introduced by SR accumulates without compounding directional
+drift across depth. While SR's unbiasedness does not survive non-linear
+operations, empirically, the downstream propagated noise remains far less biased
+for SR than for RN, validating its theoretical benefits across network depth.
+
+\begin{figure}[t]
+  \centering
+  \safeincludegraphics{figures/cumulative_propagation.pdf}
+  \caption{Cumulative propagation across block prefixes $0$ to $0\text{--}k$ for \code{mlp\_c\_proj} at $t \in \{4, 5, 6\}$. Bands show $\pm 1$ sample SD over five SR seeds.}
+  \label{fig:cumulative}
+\end{figure}
+
+
+\subsection{Mixed rounding beats full RN at matched precision}
+\label{sec:exp-composition}
+
+The sweeps above reduce one site or one module at a time, and per-site effects
+do not add (\cref{sec:exp-results}). We therefore test whether the per-site
+preferences hold when five sites are reduced together. Each mixed configuration
+assigns SR or RN per site and is compared with an all-RN configuration at
+identical per-site precisions (\cref{tab:accuracy-matched-precision}).
+
+The assignment follows the sublayer sweeps. SR is used at the two output
+projections, where it is preferred in isolation: \code{attn\_c\_proj} at $t=6$
+($62.10\pm0.42$ under SR against $62.91$ under RN) and \code{mlp\_c\_proj} at
+$k\in\{6,7,8\}$ (statistically significant at $k=6,7$; not statistically
+significant at $k=8$). RN is used at the two input projections at $t=8$, where
+neither sublayer difference is statistically significant and
+\code{attn\_c\_attn} favors RN at every lower precision with a statistically
+significant difference. The head runs under RN at $t=11$, where head-only RN is
+within $0.8\%$ of the reference ($63.00$). All remaining operations run at
+$t=24$ under RN. The all-RN control replaces SR by RN at the two output
+projections and changes nothing else.
+
+\begin{table}[t]
+  \centering
+  \caption{Mixed rounding versus RN at identical per-site significand
+    precisions on WikiText-2. Lower perplexity is better.}
+  \label{tab:accuracy-matched-precision}
+  \footnotesize
+  \setlength{\tabcolsep}{5pt}
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabular}{@{}l c cc@{}}
+    \toprule
+    \multicolumn{3}{@{}l}{\textbf{(a) Precision and rounding configurations}}                                \\
+    Site                                    & $t$ bits         & Mixed                             \\
+    \midrule
+    Attention input (\code{attn\_c\_attn})  & $8$              & RN                                \\
+    Attention output (\code{attn\_c\_proj}) & $6$              & \textbf{SR}                       \\
+    MLP input (\code{mlp\_c\_fc})           & $8$              & RN                                \\
+    MLP output (\code{mlp\_c\_proj})        & $k \in \{6,7,8\} $          & \textbf{SR}            \\
+    Language-model head (\code{lm\_head})   & $11$             & RN                                \\
+    All other operations                    & $24$             & RN                                \\
+    \bottomrule
+  \end{tabular}\hfill
+  \begin{minipage}[c]{0.42\linewidth}
+    \footnotesize
+    Configurations apply across all six blocks; $\mu\pm\sigma$ over five seeds.
+    Negative $\Delta$ favors mixed rounding. CIs are $95\%$ Student-$t$ ($df=4$).
+    Relative baseline column shows percentage increase over the full-precision reference ($62.51$) for Mixed (Full RN).
+  \end{minipage}
+
+  \medskip
+  \begin{tabular}{@{}c c c c c c@{}}
+    \toprule
+    \multicolumn{6}{@{}l}{\textbf{(b) Perplexity gaps}}                                                                                                          \\
+    \addlinespace[2pt]
+    \shortstack{$k$}
+        & \shortstack[r]{Mixed ($\mu\pm\sigma$) }
+        & \shortstack[r]{Full RN}
+        & \shortstack[r]{Gap $\Delta$ ($\%$)}
+        & \shortstack{$95\%$ CI $\Delta$}
+        & \shortstack[r]{Rel. baseline $\Delta$ (Full RN)}                                                                                                       \\
+    \midrule
+    $8$ & $64.63\pm0.68$                                   & $66.66$ & \SRbetter{$-2.03$ ($-3.04\%$)}   & $[-2.87,-1.18]$   & \RNbetter{$+3.38\%$ $(+6.64\%)$}   \\
+    $7$ & $64.89\pm0.98$                                   & $68.89$ & \SRbetter{$-4.00$ ($-5.81\%$)}   & $[-5.22,-2.79]$   & \RNbetter{$+3.80\%$ $(+10.20\%)$}  \\
+    $6$ & $69.01\pm2.07$                                   & $96.07$ & \SRbetter{$-27.06$ ($-28.17\%$)} & $[-29.63,-24.49]$ & \RNbetter{$+10.39\%$ $(+53.68\%)$} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+These results confirm that combining mixed rounding with mixed precision
+consistently improves overall performance compared to using RN alone. At
+identical per-site precisions, the mixed configuration gives lower perplexity
+than all-RN from $3.04\%$ to $28.17\%$ for all three values of $k$. The gain
+grows as the MLP down-projection loses precision, as in the sublayer sweep.
+Across rows, the mixed configuration at $k=6$ ($69.01\pm2.07$) is not
+distinguishable from all-RN at $k=7$ ($68.89$), and the mixed configuration at
+$k=7$ ($64.89\pm0.98$) is below all-RN at $k=8$ ($66.66$), which lies outside
+its $95\%$ interval. In this recipe, replacing RN by SR at the two output
+projections compensates for removing one significand bit at the MLP
+down-projection.
+
+\subsection{Limitations}
+\label{sec:exp-limitations}
+
+PRISM emulates reduced significand precision while retaining the \code{binary32}
+exponent range. These results concern significand and accumulator precision
+under emulation; they do not model the exponent-range restrictions of narrow
+hardware formats such as FP8 or NVFP4. Transfer to native hardware also depends
+on its reduction order and arithmetic implementation. Non-target operations in
+these sweeps use PRISM's untied RN at $t=24$, rather than native ties-to-even
+(RNE); while exact tie events are rare in continuous floating-point activations, their frequency and impact have not been characterized.
+Incorporating explicit exponent-range limitations remains future work.
+
+The complete sweeps use one six-block model and one leading text prefix. The
+measured site ordering and composition effects need replication across texts,
+larger models, and broader tasks. The reduction bounds and loss decomposition
+identify relevant quantities, but do not establish a universal rounding
+assignment or quantitative portability of the observed gains.

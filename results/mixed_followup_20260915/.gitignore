@@ -1,0 +1,6 @@
+/LLM/
+/python/
+/run.lock
+/driver.pid
+!logs/
+!logs/*.log

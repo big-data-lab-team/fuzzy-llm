@@ -1,0 +1,147 @@
+\section{PRISM: vectorized probabilistic rounding at variable precision}
+\label{sec:prism}
+
+This section describes how \cref{alg:vpsr} is applied to every floating-point
+operation of a PyTorch model and what it costs. We implement VPSR in PRISM
+(\emph{Probabilistic Rounding with Instruction Set Management}), an open-source
+C++17 library that previously applied vectorized SR only at hardware
+precision~\citep{gonzalezpepe2026fuzzy}. The Verificarlo compiler
+pass~\citep{denis2016verificarlo} replaces each floating-point instruction of
+the compiled framework with a call to a PRISM kernel, which computes the exact
+result as an EFT pair and rounds it at a virtual precision $t$ taken from a
+run-time configuration (\cref{fig:prism-pipeline}). In compiler-instrumented
+loops, PRISM SR costs $8.5$--$32.1\times$ native time, $4.4$--$70.5\times$ less
+than Verificarlo's MCA random rounding (\cref{sec:prism-bench}).
+
+\begin{figure}[htb]
+  \centering
+  \begin{tikzpicture}[
+    font=\small,
+    hbox/.style={draw, rounded corners=2pt, align=center, inner sep=3pt,
+        rectangle split, rectangle split parts=2,
+        rectangle split part fill={gray!25, gray!6}},
+    arr/.style={-{Stealth}, thick}]
+    \node[hbox, text width=2.2cm] (op) at (0,0)
+    {\textbf{PyTorch}
+      \nodepart{two} \code{c = a * b}};
+    \node[hbox, text width=2.9cm] (entry) at (4.16,0)
+    {\textbf{PRISM call}
+      \nodepart{two} \code{mulf32x16(a,b)}};
+    \node[hbox, text width=2.8cm] (kernel) at (8.43,0)
+    {\textbf{VPSR kernel}
+      \nodepart{two} EFT $(\sigma,\tau)$,\\ then \cref{alg:vpsr}};
+    \node[hbox, text width=2.2cm] (out) at (11.95,0)
+    {\textbf{Result}
+      \nodepart{two} $c$ rounded at\\ precision $t$};
+    \node[hbox] (cfg) at (8.43,1.7)
+    {\textbf{Configuration}
+      \nodepart{two} virtual precision $t$};
+    % \node[hbox, text width=2.9cm] (hook) at (4.16,2.3)
+    % {\textbf{Module hooks}
+    %   \nodepart{two} \cref{sec:exp-scoping}};
+    \draw[arr] (op) -- node[above, font=\scriptsize, align=center]
+    {Verificarlo\\ pass} (entry);
+    \draw[arr] (entry) -- node[below, font=\scriptsize] {16 lanes} (kernel);
+    \draw[arr] (kernel) -- (out);
+    % \draw[arr] (hook) -- node[above, font=\scriptsize] {run time} (cfg);
+    \draw[arr] (cfg) -- (kernel);
+  \end{tikzpicture}
+  \caption{Execution of one instrumented operation. At compile time, the
+    Verificarlo pass replaces a 512-bit \code{binary32} multiplication with a
+    call to the PRISM entry point for $16$ lanes. At run time, the kernel
+    rounds all lanes with \cref{alg:vpsr} at the precision set.}
+  \label{fig:prism-pipeline}
+\end{figure}
+
+\subsection{Instrumentation and kernels}
+\label{sec:prism-kernels}
+
+The Verificarlo pass maps each scalar or vector floating-point instruction to a
+PRISM entry point for the same operation, format and lane count, so PyTorch's
+source is unchanged. Each call rounds all its lanes in one kernel invocation.
+We use PRISM's static build, which fixes the instruction set at compile time.
+
+Each kernel computes the EFT pair $(\sigma,\tau)$ of \cref{sec:background-eft}
+and then applies \cref{alg:vpsr}. SR and RN share the kernel: SR draws $z$ from
+$r$ random bits, and RN fixes $z=1/2$. Because the final comparison of
+\cref{alg:vpsr} is non-strict, an exact midpoint rounds away from
+$\tilde\sigma$, and hence away from zero; giving \emph{untied} RN.
+FMA is rounded as one operation, using the \code{ErrFmaNearest}
+transform~\citep{boldo2011exact} to represent $ab+c$ exactly.
+
+The kernels are branch-free. Every data-dependent condition, in
+\cref{alg:vpsr} and in the EFTs, is computed as a lane mask and resolved by
+selection, so all lanes follow one instruction stream whatever their values,
+including infinities and NaNs. The kernels are written once against Google
+Highway~\citep{highway}, a C++ SIMD abstraction, and compile to its x86, Arm,
+RISC-V and WebAssembly targets; where no hardware FMA exists, \code{TwoProdFMA}
+uses the emulated FMA of \citet{graillat2023emulation}.
+
+\subsection{Run-time configuration}
+\label{sec:prism-config}
+
+The virtual precisions for \code{binary32} and \code{binary64}, the rounding
+mode and the generator state are run-time settings, so changing them requires
+no recompilation. In our experiments, PyTorch module hooks change them before
+and after each target module (\cref{sec:exp-scoping}). Kernels read the
+settings from a per-thread cache. A process-wide setter publishes new settings
+and advances a configuration epoch, and each worker thread reloads its cache
+when it observes a new epoch on its next operation, so a change made from the
+Python thread reaches all of PyTorch's worker threads.
+
+\subsection{Performance}
+\label{sec:prism-bench}
+
+\paragraph{Cost model.}
+\label{sec:prism-cost}
+Emulation replaces one instruction with an EFT (two to six operations), about
+twenty-five vector operations for the rounding decision, and part of a random
+draw. The control flow is fixed, so this cost does not depend on the operands.
+The slowdown relative to native execution is therefore smaller when native
+execution is memory-bound and larger when a call covers few lanes.
+
+\paragraph{Benchmark.}
+We time elementwise addition, multiplication, division and FMA over arrays of
+$65{,}536$ values in \code{binary32} and \code{binary64}. Each loop is compiled
+with \code{-O3} for 512-bit AVX-512 vectors in three builds: without
+instrumentation (the native baseline), with the PRISM SR pass, and with
+Verificarlo's MCA QUAD backend in random-rounding (RR) mode
+(\cref{sec:background-eft}). We repeat the measurement $30$ times on Intel Xeon
+Gold 6130 @ 2.1~GHz CPU (cache sizes: 32~KB L1, 1~MB L2, 22~MB L3 shared).
+
+\begin{table}[t]
+  \centering
+  \caption{Slowdown of PRISM SR versus MCA RR relative to native execution
+  ($N=65{,}536$, 30 runs; $t=24$ for \code{binary32}, $t=53$ for
+  \code{binary64}). PRISM and MCA entries are the median ratios to
+  native time for the same operation and data type (lower is better); MCA/PRISM
+  is the median per-run ratio of MCA to PRISM time.}
+  \label{tab:prism-vector-perf}
+  \begin{tabular}{lcccccc}
+    \toprule
+                                                   & \multicolumn{3}{c}{\code{binary32}} &
+    \multicolumn{3}{c}{\code{binary64}}                                                                                                                    \\
+    \cmidrule(lr){2-4}\cmidrule(lr){5-7} Operation & PRISM                               & MCA
+                                                   & MCA/PRISM                           & PRISM             & MCA   & MCA/PRISM                           \\
+    \midrule
+    add                                            & $31.1$                              & $142.4$           & $4.7$ & $11.6$           & $115.6$ & $10.0$ \\
+    \rowcolor{black!6} mul                         & $32.1$                              & $143.7$           & $4.5$ & $11.3$           & $163.1$ & $14.6$ \\
+    div                                            & $25.6$                              & $112.7$           & $4.4$ & $12.0$           & $229.9$ & $19.2$ \\
+    \rowcolor{black!6} fma                         & $19.1$                              & $\phantom{0}88.3$ & $4.7$ & $\phantom{0}8.5$ & $597.4$ & $70.5$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Results.}
+PRISM SR incurs an overhead of $\times8.5$--$32.1$, whereas MCA RR incurs
+$\times88$--$597$ (\cref{tab:prism-vector-perf}). Compared to MCA RR, PRISM SR
+is up to $\times4.7$ faster than for \code{binary32} operations and up to
+$\times70.5$ faster for \code{binary64}. The gap comes from how each backend
+obtains the exact result it rounds. MCA RR computes the result in a wider format
+and adds its random perturbation there: in \code{binary64} for \code{binary32}
+operations, which the hardware supports, and in \code{binary128} for
+\code{binary64} operations, which most CPUs emulate in software. PRISM recovers
+the exact result with EFTs in the working format, so both formats use hardware
+instructions only. Performance is nearly independent of the virtual precision:
+across precisions, PRISM times vary by less than $1\%$ and MCA times by at most
+$5\%$.

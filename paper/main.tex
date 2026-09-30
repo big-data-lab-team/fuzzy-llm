@@ -1,0 +1,170 @@
+\documentclass[twoside,11pt]{article}
+
+\usepackage[abbrvbib,preprint]{jmlr2e}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{lastpage}
+
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{bm}
+
+% tikz loads xcolor itself, without options. Requesting [table] later then
+% raises an option clash and leaves \rowcolor undefined, which silently drops
+% the shading from the benchmark tables. Pass the option before anything
+% loads the package.
+\PassOptionsToPackage{table}{xcolor}
+
+\usepackage{placeins}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, decorations.pathreplacing, shapes.multipart}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage[table]{xcolor}
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+\makeatletter
+\g@addto@macro\UrlBreaks{\do\/\do-\do_}
+\makeatother
+\usepackage[nameinlink,capitalize]{cleveref}
+\crefname{figure}{Figure}{Figures}
+\Crefname{figure}{Figure}{Figures}
+\crefname{table}{Table}{Tables}
+\Crefname{table}{Table}{Tables}
+
+\newtheorem{assumption}[theorem]{Assumption}
+\renewenvironment{proof}[1][Proof]{\par\noindent{\bf #1\ }}{\hfill\BlackBox\\[2mm]}
+\providecommand{\qedhere}{}
+
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator{\Cov}{Cov}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\softmax}{softmax}
+\DeclareMathOperator{\rank}{rank}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\F}{\mathcal{F}}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\fl}{\mathrm{fl}}
+\newcommand{\bfone}{\mathbf{1}}
+\newcommand{\ip}[2]{\left\langle #1,#2\right\rangle}
+\newcommand{\norm}[1]{\left\lVert #1\right\rVert}
+\newcommand{\abs}[1]{\left\lvert #1\right\rvert}
+\newcommand{\ulp}{\mathrm{ulp}}
+\newcommand{\SR}{\mathrm{SR}}
+\newcommand{\RN}{\mathrm{RN}}
+\newcommand{\RD}{\operatorname{RD}}
+\newcommand{\RU}{\operatorname{RU}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\SRbetter}[1]{\textcolor{green!45!black}{#1}}
+\newcommand{\RNbetter}[1]{\textcolor{red!70!black}{#1}}
+\newcommand{\safeincludegraphics}[2][]{%
+  \IfFileExists{#2}{\includegraphics[#1]{#2}}{%
+    \fbox{\parbox{0.9\linewidth}{\centering Missing figure: \path{#2}}}}}
+
+\newcommand{\githubrepo}{\url{https://github.com/big-data-lab-team/fuzzy-llm}}
+
+% Figures live in figures/ at the repo root, one level above paper/main.tex.
+% Every \safeincludegraphics call uses the form "figures/<name>.pdf", which
+% .latexmkrc resolves by adding ".." to TEXINPUTS. \graphicspath is not used
+% because \IfFileExists in \safeincludegraphics does not honor it.
+
+% Heading arguments are {volume}{year}{pages}{date submitted}{date published}{paper id}{author-full-names}
+\jmlrheading{1}{2026}{1-\pageref{LastPage}}{09/26}{}{}{Yohan Chatelain and Pablo de Oliveira Castro}
+
+% Short headings should be running head and authors last names
+\ShortHeadings{Stochastic Rounding in Transformer Inference}{Chatelain and de Oliveira Castro}
+\firstpageno{1}
+
+\begin{document}
+
+\title{Stochastic Rounding in Low-Precision Transformer Inference:\\
+  A Variable-Precision Emulation Study of a Small GPT-2}
+
+\author{\name Yohan Chatelain\thanks{Equal contribution.} \email yohan.chatelain@camh.com \\
+  \addr Krembil Centre for Neuroinformatics\\
+  Centre for Addiction and Mental Health\\
+  Toronto, Canada
+  \AND
+  \name Pablo de Oliveira Castro\footnotemark[1] \email pablo.oliveira@uvsq.fr \\
+  \addr Universit\'e Paris-Saclay, UVSQ, LI-PaRAD\\
+  Versailles, France}
+
+\editor{}
+
+\maketitle
+
+\begin{abstract}%
+  Should low-precision transformer inference use stochastic rounding~(SR) or
+  round-to-nearest~(RN)? The answer depends on \emph{where} in the network
+  you look. We isolate this effect by holding the numerical format fixed and
+  varying only the rounding rule at individual operation sites.
+
+  To enable experiments at freely chosen precisions, we extend PRISM, a
+  vectorized CPU rounding library, to arbitrary virtual precision via a new
+  variable-precision stochastic rounding~(VPSR) algorithm, and prove that the
+  rounding decision is evaluated exactly in hardware floating point.
+
+  We develop two analyses that offer complementary insight into the site-level
+  trade-off, without fully modelling end-to-end error propagation.  First, a
+  probabilistic forward-error bound for linear projections shows that SR's error
+  envelope grows as $\mathcal{O}(\sqrt{n}\,u)$ in the reduction length $n$,
+  against $\mathcal{O}(n\,u)$ for RN, a gap that widens rapidly at low
+  precision and is most pronounced in the long multilayer perceptron (MLP)
+  down-projection.  Second, a second-order decomposition of the expected cross-entropy
+  loss change at the output softmax into signed drift, drift curvature, and a
+  variance penalty weighted by the Fisher information matrix reveals why the
+  two sites behave oppositely: MLP noise is predominantly a uniform logit shift,
+  to which the softmax is insensitive, so SR's variance is largely
+  discounted; head noise is genuinely non-uniform across the vocabulary and is
+  not.
+
+  These analyses are consistent with the observations. On DistilGPT-2 at \(t=6\)
+  significand bits, SR in the MLP raises the perplexity to
+  $\times1.15$ the full-precision reference, compared with $\times2.21$ for RN.
+  At the language-model head, the ordering reverses: SR's excess loss is driven
+  by its non-uniform variance penalty, whereas deterministic RN carries zero
+  variance penalty. In a mixed-precision configuration (with MLP output at
+  $t=6$), assigning SR to the MLP and RN to the head brings perplexity within
+  $\times1.10$ of the full-precision reference, a $28\%$ reduction over
+  matched-bit RN.
+\end{abstract}
+
+\begin{keywords}
+  stochastic rounding, low-precision arithmetic, transformer inference, floating-point emulation, large language models
+\end{keywords}
+
+\input{intro.tex}
+
+\input{background.tex}
+
+\input{algo.tex}
+\input{prism.tex}
+
+\input{analysis_1.tex}
+\input{analysis_2.tex}
+
+\input{experiments.tex}
+
+\input{conclusion.tex}
+
+\acks{This work was partially funded by the FPT-4 (ANR-24-CE46-7572) project.}
+
+\appendix
+\input{appendix.tex}
+\input{appendix_drift.tex}
+
+\bibliography{references}
+\end{document}

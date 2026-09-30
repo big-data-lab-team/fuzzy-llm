@@ -1,0 +1,214 @@
+\section{Theoretical error analysis of SR versus RN}
+\label{sec:analysis}
+
+The GPT-2 architecture contains projections with very different reduction
+lengths---the MLP down-projection accumulates over $n=3072$ terms, whereas the
+attention projections accumulate over $n=768$---and the language-model head
+applies the softmax directly to the perturbed logits.  These structural
+differences create distinct opportunities for SR's variance--drift trade-off.
+This section analyzes both regimes:
+first, establishing a probabilistic forward error bound for the affine
+projection layers (\code{attn\_c\_proj} and \code{mlp\_c\_proj}) via a vector Bienaym\'e--Chebyshev
+construction (\cref{sec:analysis-mlp}); second, deriving an analytical decomposition
+of cross-entropy loss change into drift and variance components at the output softmax
+(\cref{sec:analysis-softmax}); and third, empirically validating this trade-off on DistilGPT-2
+(\cref{sec:analysis-empirical-drift}).
+Throughout, statements concern the precision at which a reduction \emph{accumulates}.
+On physical hardware, a kernel nominally in \code{bfloat16} may store in \code{bfloat16},
+multiply into a wider product, and accumulate in \code{binary32}; under PRISM,
+every elementary operation rounds at the same virtual precision, $u_{\rm sto} = u_{\rm mul} = u_{\rm acc} = 2^{1-t}$,
+so the relative ULP scale $u$ below is $2^{1-t}$ for the significand precision $t$
+swept by our harness.
+
+\subsection{Forward error analysis of linear projection layers}
+\label{sec:analysis-mlp}
+
+The multilayer perceptron (MLP) block in the GPT-2 architecture consists of two
+consecutive linear projections surrounding an element-wise activation function.
+Following the row-vector convention of \cref{eq:mlp},
+\begin{equation*}
+  \text{MLP}(x) = \phi(x W_1 + b_1) W_2 + b_2,
+\end{equation*}
+where $\phi$ is the GELU activation function~\citep{hendrycks2016gelu},
+$W_1 \in \mathbb{R}^{d_{\rm model} \times d_{\rm ff}}$ is the expansion matrix (\code{mlp\_c\_fc}), and
+$W_2 \in \mathbb{R}^{d_{\rm ff} \times d_{\rm model}}$ is the projection matrix (\code{mlp\_c\_proj}).
+In DistilGPT-2, $d_{\rm model} = 768$ and $d_{\rm ff} = 3072$.
+
+\paragraph{Limitations of backward error frameworks for nonlinear activations.}
+The backward error framework of \citet{beuzeville2025deterministic}
+analyzes multi-layer networks by absorbing rounding errors into equivalent weight
+perturbations $\Delta W$. For a layer followed by an activation $\phi$, the
+componentwise backward error bound includes a term proportional to
+$l_\phi / \kappa_\phi(z)$, where $\kappa_\phi(z) = |z \phi'(z) / \phi(z)|$ is the
+relative condition number of $\phi$ and $l_\phi u$ bounds the evaluation error
+of $\phi$.
+
+For GELU, this framework does not yield a uniform backward guarantee due to the
+vanishing derivative at its local minimum. Specifically, at $z^* \approx -0.752$,
+$\phi'(z^*) = 0$ while $\phi(z^*) \approx -0.170 \neq 0$. Consequently, the
+condition number vanishes ($\kappa_\phi(z^*) = 0$), causing the backward error bound
+$l_\phi / \kappa_\phi(z)$ to diverge in the neighborhood of $z^*$.
+
+Although each ideal SR step is conditionally unbiased, propagating SR perturbations
+through a nonlinear activation generally introduces composition bias
+\citep[Section~4]{elarar2024bounds}. To isolate the reduction error from this
+nonlinear composition, we focus on the affine down-projection \code{mlp\_c\_proj} (and, by extension, the attention projection \code{attn\_c\_proj}):
+\begin{equation*}
+  y = h W + b,
+\end{equation*}
+where $h \in \mathbb{R}^n$ is the input row vector, $W \in \mathbb{R}^{n \times m}$ is the projection matrix,
+$b \in \mathbb{R}^m$ is the bias vector, and $y \in \mathbb{R}^m$ is the output ($m = d_{\rm model} = 768$).
+For \code{mlp\_c\_proj}, $n = d_{\rm ff} = 3072$ and $h = \phi(x W_1 + b_1)$; for \code{attn\_c\_proj}, $n = d_{\rm model} = 768$ and $h$ is the concatenated multi-head attention output.
+Because these projection layers have no subsequent activation ($\phi = \mathrm{id}$), the forward
+error $e = \hat{y} - y$ directly quantifies the perturbation injected into the
+residual stream.
+
+\paragraph{Error model.}
+Each component of $y$ is evaluated as a left-to-right sequential inner product
+followed by a bias addition:
+\begin{equation*}
+  y_i = \sum_{j=1}^{n} h_j \, W_{ji} + b_i, \qquad i = 1, \dots, m,
+\end{equation*}
+totaling $2n$ operations per output component with a longest error-product chain
+of $n + 1$ rounding factors (one multiplication, $n - 1$ accumulations, and the
+final bias addition).
+
+Let $u = 2^{1-t}$ denote the relative ULP scale at virtual significand precision $t$.
+Assuming no overflow, underflow, or NaNs occur, every elementary operation satisfies
+$\fl(a \mathbin{\mathrm{op}} b) = (a \mathbin{\mathrm{op}} b)(1 + \delta)$, where:
+\begin{itemize}[leftmargin=1.5em]
+  \item under RN, $|\delta| \le u/2$;
+  \item under SR (mode-1, nearness), $|\delta| \le u$, with the mean-independence
+        property $\mathbb{E}[\delta_k \mid \delta_1, \dots, \delta_{k-1}] = 0$~\citep[Lemma~5.2]{connolly2021stochastic}.
+\end{itemize}
+
+\paragraph{Deterministic forward error bound (RN).}
+Under deterministic RN, rounding errors may align in the worst case. Applying Higham's
+exact forward error bound for inner products~\citep[Lemma~3.1]{higham2002accuracy}, each component
+and then the vector satisfy
+\begin{align*}
+  |\hat{y}_i - y_i| &\le \left( (1 + u/2)^{n+1} - 1 \right) \left( \sum_{j=1}^{n} |h_j| |W_{ji}| + |b_i| \right), \\
+  \|\hat{y} - y\|_2 &\le \left( (1 + u/2)^{n+1} - 1 \right) \, \| |h| \, |W| + |b| \|_2.
+\end{align*}
+In the high-precision regime where $nu \ll 1$, the coefficient linearizes to $\approx \frac{n+1}{2} u$;
+when $nu \gg 1$, it grows exponentially, reaching $\approx 8.11 \times 10^{80}$ at $t = 4$ for $n=3072$.
+
+\paragraph{Probabilistic rounding and scalar bounds.}
+In the first-order regime, mean-independence allows SR forward error bounds
+proportional to $\mathcal{O}(\sqrt{n} \, u)$ rather than the $\mathcal{O}(n \, u)$
+deterministic RN bound. Existing probabilistic frameworks for bounding scalar
+inner product errors $e_i = \hat{y}_i - y_i$ follow one of two strategies:
+\begin{itemize}[leftmargin=1.5em]
+  \item \emph{Azuma--Hoeffding (AH) method}~\citep{connolly2021stochastic,ipsen2020probabilistic,de2025error}:
+        Martingale bounds provide exponential probability tails, which tolerate a union bound
+        over dimensions with only a mild $\mathcal{O}(\sqrt{\ln m})$ penalty. However, the bound on
+        the increments contains a factor $(1 + u)^{n+1}$~\citep[Section~7]{elarar2024bounds}.
+        When $nu \gg 1$, this factor explodes exponentially,
+        rendering AH uninformative at low precisions.
+  \item \emph{Bienaym\'e--Chebyshev (BC) method}~\citep{elarar2022error,elarar2024bounds}:
+        Bounding the variance of the accumulated error avoids this exponential explosion:
+        because the precision enters squared in the variance bound,
+        $(1 + u^2)^{n+1} - 1 \approx (n+1) u^2$ remains small even at low precisions where $nu \gg 1$.
+\end{itemize}
+The core variance bound for error products under SR is given by the following lemma.
+
+\begin{lemma}[{\citealp[Lemma~3.1]{elarar2022error}}]
+  \label[lemma]{lem:sr-variance}
+  Let $\varphi = \prod_{k=1}^{K}(1 + \delta_k)$, where $\delta_k$ are SR-nearness rounding
+  errors satisfying $|\delta_k| \le u$ and $\mathbb{E}[\delta_k \mid \delta_1, \dots, \delta_{k-1}] = 0$.
+  Then $\mathbb{E}[\varphi] = 1$ and $\Var(\varphi) \le (1 + u^2)^K - 1$.
+\end{lemma}
+
+Applying Chebyshev's inequality to each scalar component $e_i$ yields an error bound scaling with $\frac{1}{\sqrt{\alpha}}\sqrt{(1 + u^2)^{n+1} - 1}$.
+
+\paragraph{Vector $L_2$-norm bound: combining BC with a multivariate Markov bound.}
+Extending the scalar analysis to the full output vector $e \in \mathbb{R}^m$ exposes a limitation in existing bounds: AH survives the union bound across $m$ components but fails at low precision $t$, whereas scalar BC remains stable at low precision but grows rapidly under the union bound. Because Chebyshev's inequality has a polynomial tail, setting the per-component failure probability to $\alpha / m$ inflates the confidence multiplier by $\sqrt{m}$, from $1/\sqrt{\alpha} \approx 4.47$ to $\sqrt{m/\alpha} \approx 124$ ($m = 768$, $\alpha = 0.05$). This penalty inflates the bound to $\approx 6870 \, u$, wiping out SR's advantage over RN.
+
+To circumvent this limitation, our approach combines the low-precision robustness of BC with a single multivariate Markov step applied directly to the expected squared $L_2$-norm $\mathbb{E}[\|e\|_2^2]$. This bypasses the union bound, keeping the confidence multiplier $1/\sqrt{\alpha}$ independent of the output dimension $m$.
+
+\begin{theorem}[Vector Bienaym\'e--Chebyshev Bound]
+  \label{thm:vector-bc}
+  Under SR-nearness, the forward error $e = \hat{y} - y$ of the projection $y = h W + b$
+  satisfies, for any $\alpha \in (0, 1)$, with probability at least $1 - \alpha$:
+  \begin{equation*}
+    \|\hat{y} - y\|_2 \le \frac{1}{\sqrt{\alpha}} \sqrt{(1 + u^2)^{n+1} - 1} \, \| |h| \, |W| + |b| \|_2.
+  \end{equation*}
+  The confidence multiplier $1/\sqrt{\alpha}$ is independent of the output dimension $m$.
+\end{theorem}
+
+\begin{proof}
+  The error in output component $i$ is
+  \begin{equation*}
+    e_i = \sum_{j=1}^{n} h_j W_{ji} (\varphi_{ij} - 1) + b_i (\varphi_{b,i} - 1),
+  \end{equation*}
+  where $\varphi_{ij}$ and $\varphi_{b,i}$ represent the error products along the accumulation
+  chains, containing at most $n + 1$ and $1$ rounding factors, respectively. By mean-independence,
+  $\mathbb{E}[\varphi_{ij}] = 1$, $\mathbb{E}[\varphi_{b,i}] = 1$, and $\mathbb{E}[e_i] = 0$.
+
+  Although the terms $\varphi_{ij} - 1$ share common rounding errors across additions,
+  Minkowski's inequality in $L_2$ bounds the standard deviation of their linear combination:
+  \begin{equation*}
+    \sqrt{\Var(e_i)} \le \sum_{j=1}^{n} |h_j| |W_{ji}| \sqrt{\Var(\varphi_{ij})} + |b_i| \sqrt{\Var(\varphi_{b,i})}.
+  \end{equation*}
+  Applying \cref{lem:sr-variance} with $\Var(\varphi_{ij}) \le (1 + u^2)^{n+1} - 1$ and
+  $\Var(\varphi_{b,i}) \le u^2 \le (1 + u^2)^{n+1} - 1$ yields
+  \begin{equation*}
+    \Var(e_i) \le \left( (1 + u^2)^{n+1} - 1 \right) \left( \sum_{j=1}^{n} |h_j| |W_{ji}| + |b_i| \right)^2.
+  \end{equation*}
+  By linearity of expectation, the expected squared $L_2$-norm satisfies
+  \begin{equation*}
+    \mathbb{E}[\|e\|_2^2] = \sum_{i=1}^{m} \Var(e_i) \le \left( (1 + u^2)^{n+1} - 1 \right) \, \| |h| \, |W| + |b| \|_2^2.
+  \end{equation*}
+  Applying Markov's inequality to the squared $L_2$-norm $\|e\|_2^2$ (which constitutes the
+  multivariate Bienaym\'e--Chebyshev inequality) gives
+  $\mathbb{P}\left( \|e\|_2^2 \ge \frac{1}{\alpha} \mathbb{E}[\|e\|_2^2] \right) \le \alpha$.
+  Taking the square root completes the proof.
+\end{proof}
+
+\paragraph{Numerical evaluation on DistilGPT-2.}
+While \cref{thm:vector-bc} holds for any affine projection of reduction length $n$,
+we evaluate the bounds concretely on the feedforward down-projection \code{mlp\_c\_proj}
+($n = d_{\rm ff} = 3072$, $m = d_{\rm model} = 768$) at 95\%
+confidence ($\alpha = 0.05$, $1/\sqrt{\alpha} = \sqrt{20} \approx 4.47$).
+Because \code{mlp\_c\_proj} has four times the reduction length of \code{attn\_c\_proj} ($n = 768$),
+it has the longest accumulation chains and therefore tests the error bounds in the most demanding regime.
+In the limiting first-order regime $u\to0$ (equivalently, $t\to\infty$):
+\begin{itemize}[leftmargin=1.5em]
+  \item RN deterministic: $(1 + u/2)^{n+1} - 1 \approx \frac{n+1}{2} u \approx 1537 \, u$;
+  \item SR vector BC: $\frac{1}{\sqrt{\alpha}} \sqrt{(1 + u^2)^{n+1} - 1} \approx \sqrt{20} \sqrt{n+1} \, u \approx 248 \, u$.
+\end{itemize}
+The SR coefficient is asymptotically smaller than the RN coefficient by a factor
+of approximately $6.2$. At finite precision the exact ratio approaches this
+limit from above: it is $14.37$ at $t=11$ and $6.35$ at $t=16$.
+
+\begin{figure}[t]
+  \centering
+  \safeincludegraphics[width=0.75\linewidth]{figures/rn_vs_sr_bounds.pdf}
+  \caption{Deterministic RN and SR forward-error bound
+  coefficients for \code{mlp\_c\_proj} in DistilGPT-2 ($n=3072$).}
+  \label{fig:validity-bounds}
+\end{figure}
+
+As shown in \cref{fig:validity-bounds}, the deterministic RN bound suffers from exponential error
+compounding at low precision ($nu \gg 1$), reaching $2.43 \times 10^{10}$ at $t = 7$ and $8.11 \times 10^{80}$ at $t = 4$.
+In contrast, because precision enters squared under stochastic rounding, the SR
+vector BC bound grows much more slowly ($4.73$ at $t = 7$). At $t=11$ the exact RN and SR
+coefficients are $3.482$ and $0.242$, a ratio of $14.37$; the ratio decreases
+toward $6.2$ only in the limit $t\to\infty$.
+
+For fixed $\alpha$ in the first-order regime, \cref{thm:vector-bc} yields an
+$\mathcal{O}(\sqrt{n}u)$ bound for SR, whereas deterministic RN scales as
+$\mathcal{O}(nu)$. Both bounds are worst-case over the inputs and normalize by
+$\| |h| \, |W| + |b| \|_2$, but they treat arithmetic errors
+differently. Under RN, rounding errors are deterministic functions of the data
+that can align constructively in the worst case. Under SR, mean-independence
+yields the $\sqrt{n}$ factor via the Bienaym\'e--Chebyshev variance bound. While
+both results are upper bounds, and realized RN errors rarely achieve worst-case
+alignment, the comparison illustrates the fundamental contrast between the two modes:
+deterministic rounding permits systematic linear drift along the reduction chain,
+whereas stochastic rounding restricts error growth to a sub-linear
+$\mathcal{O}(\sqrt{n}u)$ envelope.
+
+The downstream captures in \cref{sec:analysis-empirical-drift} show larger RN than SR
+sample logit drift after reducing \code{mlp\_c\_proj}. These propagated
+measurements do not directly test the single-reduction bounds above.

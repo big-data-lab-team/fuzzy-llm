@@ -1,0 +1,90 @@
+\FloatBarrier
+\section{Drift and variance measurements}
+\label{app:drift-measurements}
+
+\Cref{tab:decomposition} provides the numerical decomposition behind
+\cref{sec:analysis-empirical-drift}. All estimates condition on the same
+$N=1020$ scored positions.
+
+\paragraph{Logit measurement protocol.} The evaluation uses the same DistilGPT-2
+checkpoint and $N=1020$ scored WikiText-2 positions as the perplexity sweeps
+(\cref{sec:exp-setup}), with full-precision reference loss $\mathcal L_0=4.1354$ nats
+($\operatorname{PPL}_0=62.51$).
+Unlike the RN-background sweeps in \cref{sec:exp-scoping}, instrumented operations
+outside the lowered site use the matching rounding rule at $t=24$ (SR background for SR;
+RN for RN). The SR perturbations therefore include full-precision background rounding;
+an eight-seed SR control with no lowered site yields mean excess loss of
+$(6.66\pm14.48)\times10^{-8}$ nats, verifying that the background contribution is
+negligible. As noted in \cref{sec:analysis-empirical-drift}, the decomposition estimates condition
+on this text using $S=32$ SR seeds and one deterministic RN run per precision ($t=4,\ldots,10$).
+
+\paragraph{Finite-seed estimators.}
+With $\hat b=S^{-1}\sum_s\Delta_s$,
+$A=\tfrac{1}{2S}\sum_s\Var_p(\Delta_s)$, and
+$B=\tfrac12\Var_p(\hat b)$, the unbiased quadratic estimators are
+$\hat Q = \tfrac{SB-A}{S-1} = B - \tfrac{\hat V}{S}$ and
+$\hat V = \tfrac{S(A-B)}{S-1}$.
+We use $\hat D=g^\top\hat b$ and define $\hat R$ by subtracting these three
+terms from the measured mean excess loss; agreement of their sum is therefore
+not an independent validation. Standard errors are estimated by leaving out each seed in turn and
+recomputing the estimator. Although $Q\ge0$, its
+unbiased estimate can be negative: at the head and $t=8$, $\hat Q$ is
+$-0.0017\pm0.0013$ at $S=8$ and $-0.0003\pm0.0004$ at $S=32$. Both estimates lie within two standard errors of zero.
+We compute the variance penalty without forming the full covariance matrix via
+$2V=\operatorname{tr}(H\Sigma)=\sum_jp_j\Sigma_{jj}-\Var_s(p^\top\Delta)$,
+which requires only the coordinate variances and the variance of $p^\top\Delta$.
+
+% Padding macros for \cref{tab:decomposition,tab:head-drift}: they reserve the
+% width of a minus sign and of a digit. Together with the inline
+% \phantom{{}\pm0.0000} that stands in for the standard error RN rows do not
+% have, they give every cell in a column one common width, so the numbers sit
+% centred under their heading and the decimal points and \pm signs line up.
+\newcommand{\hdneg}{\phantom{-}}
+\newcommand{\hddig}{\phantom{0}}
+
+\begin{table}[htbp]
+  \centering\small
+  \caption{Loss decomposition terms (\cref{eq:head-full-comparison}) in nats, averaged over $N=1020$ positions. SR reports mean $\pm$ 1 SE ($S=32$ seeds); RN is deterministic ($V_{\RN}=0$).}
+  \label{tab:decomposition}
+  {\footnotesize
+    \setlength{\tabcolsep}{3pt}
+    \begin{tabular}{ccrrrrrr}
+      \toprule
+                                                                                  &                         & \multicolumn{1}{c}{$t$} & \multicolumn{1}{c}{$D$}                              & \multicolumn{1}{c}{$Q$}
+                                                                                  & \multicolumn{1}{c}{$V$} & \multicolumn{1}{c}{$R$} & \multicolumn{1}{c}{$\E[\delta\mathcal L]$}                                                                                                                                                                                                                                             \\
+      \midrule
+                                                                                  &                         & \cellcolor{gray!10}$4$  & \cellcolor{gray!10}$\hdneg0.049\hddig\pm0.043\hddig$ & \cellcolor{gray!10}${-}0.002\hddig\pm0.011\hddig$    & \cellcolor{gray!10}$23.204\hddig\pm0.047\hddig$      & \cellcolor{gray!10}${-}5.860\hddig\pm0.046\hddig$    & \cellcolor{gray!10}$\hdneg17.392\hddig\pm0.045\hddig$      \\
+                                                                                  &                         & \cellcolor{gray!10}$5$  & \cellcolor{gray!10}${-}0.009\hddig\pm0.021\hddig$    & \cellcolor{gray!10}${-}0.001\hddig\pm0.006\hddig$    & \cellcolor{gray!10}$10.446\hddig\pm0.021\hddig$      & \cellcolor{gray!10}${-}1.141\hddig\pm0.022\hddig$    & \cellcolor{gray!10}$\hdneg\hddig9.295\hddig\pm0.025\hddig$ \\
+                                                                                  &                         & \cellcolor{gray!10}$6$  & \cellcolor{gray!10}$\hdneg0.015\hddig\pm0.016\hddig$ & \cellcolor{gray!10}$\hdneg0.002\hddig\pm0.002\hddig$ & \cellcolor{gray!10}$\hddig4.606\hddig\pm0.009\hddig$ & \cellcolor{gray!10}${-}0.223\hddig\pm0.009\hddig$    & \cellcolor{gray!10}$\hdneg\hddig4.400\hddig\pm0.016\hddig$ \\
+                                                                                  &                         & \cellcolor{gray!10}$7$  & \cellcolor{gray!10}$\hdneg0.016\hddig\pm0.010\hddig$ & \cellcolor{gray!10}$\hdneg0.001\hddig\pm0.001\hddig$ & \cellcolor{gray!10}$\hddig1.951\hddig\pm0.003\hddig$ & \cellcolor{gray!10}${-}0.062\hddig\pm0.003\hddig$    & \cellcolor{gray!10}$\hdneg\hddig1.907\hddig\pm0.011\hddig$ \\
+                                                                                  &                         & \cellcolor{gray!10}$8$  & \cellcolor{gray!10}${-}0.008\hddig\pm0.008\hddig$    & \cellcolor{gray!10}${-}0.0003\pm0.0004$              & \cellcolor{gray!10}$\hddig0.766\hddig\pm0.001\hddig$ & \cellcolor{gray!10}${-}0.017\hddig\pm0.001\hddig$    & \cellcolor{gray!10}$\hdneg\hddig0.740\hddig\pm0.007\hddig$ \\
+                                                                                  &                         & \cellcolor{gray!10}$9$  & \cellcolor{gray!10}$\hdneg0.003\hddig\pm0.003\hddig$ & \cellcolor{gray!10}$\hdneg0.000\hddig\pm0.000\hddig$ & \cellcolor{gray!10}$\hddig0.270\hddig\pm0.001\hddig$ & \cellcolor{gray!10}${-}0.003\hddig\pm0.000\hddig$    & \cellcolor{gray!10}$\hdneg\hddig0.271\hddig\pm0.003\hddig$ \\
+                                                                                  & \multirow{-7}{*}{SR}    & \cellcolor{gray!10}$10$ & \cellcolor{gray!10}$\hdneg0.003\hddig\pm0.002\hddig$ & \cellcolor{gray!10}$\hdneg0.000\hddig\pm0.000\hddig$ & \cellcolor{gray!10}$\hddig0.084\hddig\pm0.000\hddig$ & \cellcolor{gray!10}$\hdneg0.000\hddig\pm0.000\hddig$ & \cellcolor{gray!10}$\hdneg\hddig0.087\hddig\pm0.002\hddig$ \\
+      \cmidrule(l){2-8}
+                                                                                  &                         & $4$                     & ${-}0.016\hddig\phantom{{}\pm0.0000}$                & $\hdneg3.166\hddig\phantom{{}\pm0.0000}$             & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg1.974\hddig\phantom{{}\pm0.0000}$             & $\hdneg\hddig5.124\hddig\phantom{{}\pm0.0000}$             \\
+                                                                                  &                         & $5$                     & $\hdneg0.104\hddig\phantom{{}\pm0.0000}$             & $\hdneg2.402\hddig\phantom{{}\pm0.0000}$             & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg1.100\hddig\phantom{{}\pm0.0000}$             & $\hdneg\hddig3.605\hddig\phantom{{}\pm0.0000}$             \\
+                                                                                  &                         & $6$                     & $\hdneg0.041\hddig\phantom{{}\pm0.0000}$             & $\hdneg1.576\hddig\phantom{{}\pm0.0000}$             & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg0.500\hddig\phantom{{}\pm0.0000}$             & $\hdneg\hddig2.117\hddig\phantom{{}\pm0.0000}$             \\
+                                                                                  &                         & $7$                     & $\hdneg0.030\hddig\phantom{{}\pm0.0000}$             & $\hdneg0.830\hddig\phantom{{}\pm0.0000}$             & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg0.168\hddig\phantom{{}\pm0.0000}$             & $\hdneg\hddig1.028\hddig\phantom{{}\pm0.0000}$             \\
+                                                                                  &                         & $8$                     & $\hdneg0.019\hddig\phantom{{}\pm0.0000}$             & $\hdneg0.346\hddig\phantom{{}\pm0.0000}$             & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg0.038\hddig\phantom{{}\pm0.0000}$             & $\hdneg\hddig0.404\hddig\phantom{{}\pm0.0000}$             \\
+                                                                                  &                         & $9$                     & ${-}0.012\hddig\phantom{{}\pm0.0000}$                & $\hdneg0.124\hddig\phantom{{}\pm0.0000}$             & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg0.007\hddig\phantom{{}\pm0.0000}$             & $\hdneg\hddig0.120\hddig\phantom{{}\pm0.0000}$             \\
+      \multirow{-14}{*}{\rotatebox[origin=c]{90}{\code{lm\_head} ($n=768$)}}      & \multirow{-7}{*}{RN}    & $10$                    & ${-}0.014\hddig\phantom{{}\pm0.0000}$                & $\hdneg0.039\hddig\phantom{{}\pm0.0000}$             & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg0.000\hddig\phantom{{}\pm0.0000}$             & $\hdneg\hddig0.025\hddig\phantom{{}\pm0.0000}$             \\
+      \midrule
+                                                                                  &                         & \cellcolor{gray!10}$4$  & \cellcolor{gray!10}${-}0.2553\pm0.0064$              & \cellcolor{gray!10}$\hdneg0.9690\pm0.0042$           & \cellcolor{gray!10}$\hddig0.4566\pm0.0020$           & \cellcolor{gray!10}$\hdneg0.8280\pm0.0062$           & \cellcolor{gray!10}$\hdneg\hddig1.9983\pm0.0085$           \\
+                                                                                  &                         & \cellcolor{gray!10}$5$  & \cellcolor{gray!10}${-}0.1300\pm0.0047$              & \cellcolor{gray!10}$\hdneg0.1645\pm0.0022$           & \cellcolor{gray!10}$\hddig0.2245\pm0.0012$           & \cellcolor{gray!10}$\hdneg0.0680\pm0.0024$           & \cellcolor{gray!10}$\hdneg\hddig0.3270\pm0.0054$           \\
+                                                                                  &                         & \cellcolor{gray!10}$6$  & \cellcolor{gray!10}${-}0.0532\pm0.0026$              & \cellcolor{gray!10}$\hdneg0.0165\pm0.0005$           & \cellcolor{gray!10}$\hddig0.0828\pm0.0005$           & \cellcolor{gray!10}$\hdneg0.0040\pm0.0004$           & \cellcolor{gray!10}$\hdneg\hddig0.0501\pm0.0027$           \\
+                                                                                  &                         & \cellcolor{gray!10}$7$  & \cellcolor{gray!10}${-}0.0169\pm0.0019$              & \cellcolor{gray!10}$\hdneg0.0014\pm0.0001$           & \cellcolor{gray!10}$\hddig0.0252\pm0.0002$           & \cellcolor{gray!10}$\hdneg0.0006\pm0.0001$           & \cellcolor{gray!10}$\hdneg\hddig0.0104\pm0.0018$           \\
+                                                                                  &                         & \cellcolor{gray!10}$8$  & \cellcolor{gray!10}${-}0.0043\pm0.0008$              & \cellcolor{gray!10}$\hdneg0.0001\pm0.0000$           & \cellcolor{gray!10}$\hddig0.0067\pm0.0001$           & \cellcolor{gray!10}$\hdneg0.0001\pm0.0000$           & \cellcolor{gray!10}$\hdneg\hddig0.0026\pm0.0007$           \\
+                                                                                  &                         & \cellcolor{gray!10}$9$  & \cellcolor{gray!10}${-}0.0013\pm0.0004$              & \cellcolor{gray!10}$\hdneg0.0000\pm0.0000$           & \cellcolor{gray!10}$\hddig0.0017\pm0.0000$           & \cellcolor{gray!10}$\hdneg0.0000\pm0.0000$           & \cellcolor{gray!10}$\hdneg\hddig0.0005\pm0.0004$           \\
+                                                                                  & \multirow{-7}{*}{SR}    & \cellcolor{gray!10}$10$ & \cellcolor{gray!10}${-}0.0004\pm0.0002$              & \cellcolor{gray!10}$\hdneg0.0000\pm0.0000$           & \cellcolor{gray!10}$\hddig0.0004\pm0.0000$           & \cellcolor{gray!10}$\hdneg0.0000\pm0.0000$           & \cellcolor{gray!10}$\hdneg\hddig0.0001\pm0.0002$           \\
+      \cmidrule(l){2-8}
+                                                                                  &                         & $4$                     & ${-}0.1676\phantom{{}\pm0.0000}$                     & $\hdneg2.4204\phantom{{}\pm0.0000}$                  & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg1.1792\phantom{{}\pm0.0000}$                  & $\hdneg\hddig3.4321\phantom{{}\pm0.0000}$                  \\
+                                                                                  &                         & $5$                     & ${-}0.1250\phantom{{}\pm0.0000}$                     & $\hdneg1.0504\phantom{{}\pm0.0000}$                  & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg0.4607\phantom{{}\pm0.0000}$                  & $\hdneg\hddig1.3861\phantom{{}\pm0.0000}$                  \\
+                                                                                  &                         & $6$                     & ${-}0.1148\phantom{{}\pm0.0000}$                     & $\hdneg0.2867\phantom{{}\pm0.0000}$                  & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg0.0702\phantom{{}\pm0.0000}$                  & $\hdneg\hddig0.2421\phantom{{}\pm0.0000}$                  \\
+                                                                                  &                         & $7$                     & ${-}0.0288\phantom{{}\pm0.0000}$                     & $\hdneg0.0686\phantom{{}\pm0.0000}$                  & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg0.0055\phantom{{}\pm0.0000}$                  & $\hdneg\hddig0.0453\phantom{{}\pm0.0000}$                  \\
+                                                                                  &                         & $8$                     & ${-}0.0101\phantom{{}\pm0.0000}$                     & $\hdneg0.0166\phantom{{}\pm0.0000}$                  & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg0.0006\phantom{{}\pm0.0000}$                  & $\hdneg\hddig0.0071\phantom{{}\pm0.0000}$                  \\
+                                                                                  &                         & $9$                     & ${-}0.0043\phantom{{}\pm0.0000}$                     & $\hdneg0.0040\phantom{{}\pm0.0000}$                  & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg0.0000\phantom{{}\pm0.0000}$                  & $\hddig{-}0.0002\phantom{{}\pm0.0000}$                     \\
+      \multirow{-14}{*}{\rotatebox[origin=c]{90}{\code{mlp\_c\_proj} ($n=3072$)}} & \multirow{-7}{*}{RN}    & $10$                    & ${-}0.0020\phantom{{}\pm0.0000}$                     & $\hdneg0.0010\phantom{{}\pm0.0000}$                  & $\hddig0\phantom{.0000}\phantom{{}\pm0.0000}$        & $\hdneg0.0000\phantom{{}\pm0.0000}$                  & $\hddig{-}0.0009\phantom{{}\pm0.0000}$                     \\
+      \bottomrule
+    \end{tabular}}
+\end{table}
+\FloatBarrier

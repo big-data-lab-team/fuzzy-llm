@@ -1,0 +1,17 @@
+Resource limits are not supported and ignored on cgroups V1 rootless systems
+/usr/local/lib/python3.12/dist-packages/transformers/utils/generic.py:485: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+Loading distilgpt2...
+/usr/local/lib/python3.12/dist-packages/huggingface_hub/file_download.py:949: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/usr/local/lib/python3.12/dist-packages/transformers/utils/generic.py:342: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+Loading dataset slice from local cache 'wikitext-2-test.txt'...
+Token indices sequence length is longer than the specified maximum sequence length for this model (1847 > 1024). Running this sequence through the model will result in indexing errors
+
+Evaluating sites: attn_c_attn=24:rn,attn_c_proj=24:rn,mlp_c_fc=24:rn,mlp_c_proj=24:rn,lm_head=24:rn
+  All other operations: 24-bit RN
+
+Instrumented 25 layers.
+
+Result -> Sites: attn_c_attn=24:rn,attn_c_proj=24:rn,mlp_c_fc=24:rn,mlp_c_proj=24:rn,lm_head=24:rn | Perplexity: 62.5118 | Time: 4335.75s

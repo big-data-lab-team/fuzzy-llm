@@ -1,0 +1,85 @@
+\section{Introduction}
+\label{sec:intro}
+
+Transformer inference increasingly uses formats narrower than the binary64
+arithmetic for which much of classical numerical analysis was developed. The
+dominant response is quantization: choose a target format, map weights and
+activations onto it, and recover accuracy through calibration, outlier handling,
+or per-channel scaling
+\citep{3600270.3602468,xiao2023smoothquant,lin2024awq,gong2024what}. In that
+program, the rounding operator is usually fixed by the underlying hardware format.
+In post-training quantization, offline weight-rounding methods such as
+AdaRound~\citep{nagel2020adaround} optimize the rounding direction of static
+weights via a local second-order task loss surrogate. However, the rounding
+rule used for intermediate calculations during inference has received less
+attention. In contrast, dynamic rounding is already becoming explicit in
+low-precision training: NVIDIA's microscaled NVFP4 recipe,
+for example, selectively uses stochastic rounding for gradient casts to reduce
+quantization bias~\citep{nvidia2025nvfp4}. Whether this same
+selectivity is useful during inference remains an open question.
+
+This paper isolates that question by holding the numerical format fixed and
+varying only the rounding rule. Round-to-nearest~\citep{muller2018handbook} (RN)
+returns the closer representable neighbor, whereas stochastic
+rounding~\citep{forsythe1959rounding,croci2022stochastic} (SR), proposed by
+Forsythe for controlling accumulated roundoff and pioneered in deep learning by
+\citet{gupta2015deep} to prevent gradient stagnation in low-precision training,
+selects either neighbor with probability proportional to proximity, making each
+rounding error zero in expectation.
+RN errors, by contrast, are deterministic functions of their operands and may
+align; sufficiently small addends can be absorbed by a large accumulator or
+repeated operations can drift away from the exact result. SR therefore trades
+systematic local drift for higher variance.
+
+Whether stochastic rounding improves inference accuracy depends first on the
+operation. A long reduction is more exposed to accumulated RN drift than a short
+one. In a GPT-2-style block~\citep{radford2019language}, the multilayer
+perceptron (MLP) down-projection reduces over $d_{\rm ff}=3072$ terms, while an
+attention-head score reduces over $d_{\rm head}=64$. At the same accumulator
+precision, these operations can therefore have very different exposure to
+accumulated roundoff.
+
+The outcome also depends on the operation's location, both because local input
+distributions affect how errors initially accumulate, and because downstream
+layers transform the resulting perturbations. A perturbation in an attention score
+passes through the softmax before changing the weighted value sum, whereas a
+perturbation from the MLP down-projection enters the residual stream and is
+transformed by later blocks. The same change of rounding rule can therefore
+reduce perplexity at one site and increase it at another. This leads to the
+research question of this paper: \emph{when and where does stochastic rounding
+      improve transformer inference accuracy over round-to-nearest at low fixed
+      precision?}
+
+We study this question in the GPT-2 architecture, using DistilGPT-2 as a
+six-block instance, and compare the two rounding rules site by site. Hardware
+SR is tied to particular formats, operations, and accelerators, so experiments
+at freely selected precisions require software emulation at every instrumented
+operation, and the arithmetic intensity of transformer inference requires that
+emulator to be fast and to vary precision and rounding rule at run time. The
+contributions of this paper are as follows:
+
+\begin{itemize}[leftmargin=1.5em]
+      \item We present the \textbf{variable-precision stochastic rounding
+                  (VPSR)} algorithm (\cref{sec:vpsr}), prove its correctness, and
+            implement it in \textbf{PRISM}~\citep{prism}, where it runs up to
+            $70\times$ faster than Verificarlo's Monte Carlo Arithmetic (MCA)
+            random rounding (\cref{sec:prism-bench}).
+      \item We analyze SR in transformer layers (\cref{sec:analysis}): we establish a
+            vector Bienaym\'e--Chebyshev bound that extends prior scalar
+            probabilistic forward-error analysis to the full matrix multiplication
+            of the MLP projection. We also analyze softmax error propagation by
+            deriving an exact decomposition of the cross-entropy loss change
+            into signed target shift ($D$) and Kullback--Leibler (KL) distortion, and perform
+            a second-order Taylor expansion of the KL term into drift curvature
+            ($Q$) and variance penalty ($V$) terms, characterizing the
+            site-level trade-offs between SR and RN.
+      \item We evaluate on DistilGPT-2 and WikiText-2 (\cref{sec:experiments})
+            by lowering $t$ site by site. SR is better in the MLP and RN at the
+            language-model head, and the MLP gap widens as more down-projections
+            are affected. At $t=6$ in the MLP, SR holds perplexity degradation to
+            $15\%$ over the full-precision reference against $121\%$ for RN, and
+            comes within $0.3\%$ of the reference by $t=8$.
+\end{itemize}
+
+\paragraph{Disclaimer on AI usage.}
+AI tools (specifically Anthropic Claude, Google Gemini, and OpenAI Codex) were used during the preparation of this manuscript to assist with prose drafting, editing, and checking the mathematical proofs. All derivations, empirical evaluations, and final text were independently verified by the authors, who take full responsibility for the contents of this work.

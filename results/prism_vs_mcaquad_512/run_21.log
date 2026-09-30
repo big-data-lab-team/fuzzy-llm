@@ -1,0 +1,65 @@
+Date: 2026-09-24T20:37:31Z
+Host: node08
+Job: 368141_21
+Model name:          Intel(R) Xeon(R) Gold 6130 CPU @ 2.10GHz
+=== run 21 native p=24/53 ===
+# N=65536 reps=5000 trials=7; median ns/element
+add  binary32      0.1477
+mul  binary32      0.1606
+div  binary32      0.1761
+fma  binary32      0.2593
+add  binary64      0.7396
+mul  binary64      0.7653
+div  binary64      0.7388
+fma  binary64      1.1662
+=== run 21 prism p=24/53 ===
+# N=65536 reps=100 trials=7; median ns/element
+add  binary32      4.5230
+mul  binary32      4.3706
+div  binary32      4.5870
+fma  binary32      4.9618
+add  binary64      8.9528
+mul  binary64      8.8776
+div  binary64      9.2487
+fma  binary64      9.9839
+=== run 21 mca p=24/53 ===
+# N=65536 reps=30 trials=7; median ns/element
+add  binary32     20.5418
+mul  binary32     19.1957
+div  binary32     19.7678
+fma  binary32     23.3629
+add  binary64     90.0639
+mul  binary64    127.1996
+div  binary64    180.0295
+fma  binary64    707.6693
+=== run 21 native p=8/24 ===
+# N=65536 reps=5000 trials=7; median ns/element
+add  binary32      0.1417
+mul  binary32      0.1295
+div  binary32      0.1867
+fma  binary32      0.3017
+add  binary64      0.7510
+mul  binary64      0.7847
+div  binary64      0.7604
+fma  binary64      1.1799
+=== run 21 prism p=8/24 ===
+# N=65536 reps=100 trials=7; median ns/element
+add  binary32      4.4088
+mul  binary32      4.3389
+div  binary32      4.4897
+fma  binary32      5.0136
+add  binary64      8.8290
+mul  binary64      8.8295
+div  binary64      9.2398
+fma  binary64     10.0017
+=== run 21 mca p=8/24 ===
+# N=65536 reps=30 trials=7; median ns/element
+add  binary32     19.4565
+mul  binary32     19.2010
+div  binary32     19.7343
+fma  binary32     23.3604
+add  binary64    116.5398
+mul  binary64    128.4333
+div  binary64    180.7019
+fma  binary64    708.4274
+RUN_OK

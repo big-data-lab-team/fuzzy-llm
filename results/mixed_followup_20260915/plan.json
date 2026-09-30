@@ -1,0 +1,182 @@
+{
+  "image": "a51af0ef588be785d56896a2f08bcd14c6d50a919e70fbdb1150e75eb7aaaf1a",
+  "image_tag": "localhost/big-data-lab-team/fuzzy-pytorch:sr-epoch",
+  "cache": "<hf-cache>",
+  "context": 256,
+  "tokens": 1024,
+  "threads": 1,
+  "concurrency": 3,
+  "mlp_bits": [
+    8,
+    7,
+    6
+  ],
+  "jobs": [
+    {
+      "name": "reference",
+      "config": "attn_c_attn=24:rn,attn_c_proj=24:rn,mlp_c_fc=24:rn,mlp_c_proj=24:rn,lm_head=24:rn",
+      "seed": 1
+    },
+    {
+      "name": "incumbent_rn",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:rn,mlp_c_fc=8:rn,mlp_c_proj=9:rn,lm_head=11:rn",
+      "seed": 1
+    },
+    {
+      "name": "mlp8_rn",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:rn,mlp_c_fc=8:rn,mlp_c_proj=8:rn,lm_head=11:rn",
+      "seed": 1
+    },
+    {
+      "name": "mlp8_mixed_seed101",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=8:sr,lm_head=11:rn",
+      "seed": 101
+    },
+    {
+      "name": "mlp8_mixed_seed102",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=8:sr,lm_head=11:rn",
+      "seed": 102
+    },
+    {
+      "name": "mlp8_mixed_seed103",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=8:sr,lm_head=11:rn",
+      "seed": 103
+    },
+    {
+      "name": "mlp8_mixed_seed104",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=8:sr,lm_head=11:rn",
+      "seed": 104
+    },
+    {
+      "name": "mlp8_mixed_seed105",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=8:sr,lm_head=11:rn",
+      "seed": 105
+    },
+    {
+      "name": "mlp7_rn",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:rn,mlp_c_fc=8:rn,mlp_c_proj=7:rn,lm_head=11:rn",
+      "seed": 1
+    },
+    {
+      "name": "mlp7_mixed_seed101",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=7:sr,lm_head=11:rn",
+      "seed": 101
+    },
+    {
+      "name": "mlp7_mixed_seed102",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=7:sr,lm_head=11:rn",
+      "seed": 102
+    },
+    {
+      "name": "mlp7_mixed_seed103",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=7:sr,lm_head=11:rn",
+      "seed": 103
+    },
+    {
+      "name": "mlp7_mixed_seed104",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=7:sr,lm_head=11:rn",
+      "seed": 104
+    },
+    {
+      "name": "mlp7_mixed_seed105",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=7:sr,lm_head=11:rn",
+      "seed": 105
+    },
+    {
+      "name": "mlp6_rn",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:rn,mlp_c_fc=8:rn,mlp_c_proj=6:rn,lm_head=11:rn",
+      "seed": 1
+    },
+    {
+      "name": "mlp6_mixed_seed101",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=6:sr,lm_head=11:rn",
+      "seed": 101
+    },
+    {
+      "name": "mlp6_mixed_seed102",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=6:sr,lm_head=11:rn",
+      "seed": 102
+    },
+    {
+      "name": "mlp6_mixed_seed103",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=6:sr,lm_head=11:rn",
+      "seed": 103
+    },
+    {
+      "name": "mlp6_mixed_seed104",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=6:sr,lm_head=11:rn",
+      "seed": 104
+    },
+    {
+      "name": "mlp6_mixed_seed105",
+      "config": "attn_c_attn=8:rn,attn_c_proj=6:sr,mlp_c_fc=8:rn,mlp_c_proj=6:sr,lm_head=11:rn",
+      "seed": 105
+    }
+  ],
+  "hashes": {
+    "LLM/test_ideal_mixed.py": "e8f879931e7b41d3334b7d077078192358268af43241af95df506f5cea81856b",
+    "LLM/do_fine_blockwise_perplexity.sh": "97a724a924edf5d71b9570a61cbcf95d0ba14f201cbeeead467852e042035cf0",
+    "LLM/do_fine_perplexity.sh": "4fe5d826deb1eb982d513383ddd8ffc8b10569409b2f576c12fc0707dc110a10",
+    "LLM/Containerfile": "704eb52c6a532bf158efee11f160a91cb09c104062304bf6be22d8950c422329",
+    "LLM/RUNBOOK.md": "595b196518eb70b7ae1f3af540018f11eaea40417ef3d734c8a7116f83afdeb2",
+    "LLM/test_mixed_generation.py": "a44bb8e2456b510d043015aceb146c7d512791268d03e83600d1fe5d7fb2a087",
+    "LLM/test_perplexity.py": "433afce7a76be8fd648c1fc79a9d973e9cea8dd4d4f062dbc4e431ee4da2032a",
+    "LLM/token_fisher_analysis.py": "4a299f4c7a80a576df4e9be852b6d7bc6428bf37a1614c51fa8b42beefd4881c",
+    "LLM/test_drift_study.py": "ed1bbdb7e1c1806f933a687765242bf542de22fb358f9424600e60d9c62c1ca7",
+    "LLM/do_baseline.sh": "74c684ecb7bcaedb9be61d984f2ab0eb2bd1aa7657218d20821e9d6675d87bed",
+    "LLM/logit_drift_map.sbatch": "b4d760e0825e322e86c60e0b8bae5e84a5a87d118e51ba86f0c9d2db99d9d343",
+    "LLM/do_mixed_precision_eval.sh": "7e4fb75b0106e9f8db58e121f221810a96b41033f884149d062cbdb831c5ebc5",
+    "LLM/table_perplexity_sr_vs_rn.py": "bc0c8b7c2618eb3bea1e5c18e2c37253399e716d1c9173e6586777a6437e8036",
+    "LLM/SEARCH_DESIGN.md": "c12509f45ddce3dd15eb8a024b76b5be2ae7f1013bccdd5ff0982210c906511e",
+    "LLM/wikitext-2-test.txt": "d790b833ef8cf03a90db7bf1271b7520b83c45ce07ba3c1a9699df81e239eca0",
+    "LLM/plot_cumulative_perplexity.py": "7f3c1987780ce5e0dea8d19778ab6d496aa4eb0e64368649fcc350003d8d6dce",
+    "LLM/decompose.py": "11ac83013ecce87257ae72d4d0c5dcd48b5422d663e497eb01c1061559810d4f",
+    "LLM/test_baseline.py": "19c97182ae626fa9a5f77a60e60a5122d23bee79b7a44fc6474ba5399dd4a99e",
+    "LLM/do_fine_cumulative_perplexity.sh": "2a20847facb4bfda97f783362a64216d2355109b9fdfa54ce3781b6cbc6c8735",
+    "LLM/test_global_perplexity.py": "4b6007136b3465486f3d8f3ef9d384a4d0de85bd18398557100d15609faf02dd",
+    "LLM/eval_utils.py": "44aed28c4c4768d6ffef8354c1765a6a2745b5c9b0298905c6b8f39d8fc41dbc",
+    "LLM/test_percomponent_perplexity.py": "e46b23c7eadcfd8b767ff2beb90388f0db2be807349b612b5670593e5557ed5c",
+    "LLM/test_decompose_cache.py": "16450792c83af0e09d07514c3cb0c09fc2470e7317a7d2fca1bcaac9e9fa4b0e",
+    "LLM/mixed_rounding_followup.py": "10adbf6a97058e90b5f157d32d43e1e39a96ed37614549505bade87dbf486e16",
+    "LLM/parse_sweep_logs.py": "d47f256928f8ec315d2d16534712d2d9526dfe4276c3ff8a4d399778057c7d87",
+    "LLM/do_mixed_generation.sh": "f8583ce2edd109e8529d0e5304847267aaabb6a63e1e8fc5ad73127420b200c1",
+    "LLM/check_windows.py": "f68bec355efd32c50ab10d5dffce415eb56bff494bef814e8082161935ee6a56",
+    "LLM/test_fine_perplexity.py": "3415091d55e063d68534b0cb7429f055b63e4df23b6c027af804e6cce60d0ff1",
+    "LLM/plot_blockwise_perplexity.py": "452a33bc721f7568a0fae18df9d8df0ed873b08955e5318da6f5d7e99a3eaba6",
+    "LLM/distributions.py": "ad0deec1c513afda424949b0191678321ded24119b9dd78ba957129696122db6",
+    "LLM/plot_fine_perplexity.py": "c907519a8309caac844794957f2fd2c423da9c876dc19df120b9282bb2fe1505",
+    "LLM/do_percomponent_perplexity.sh": "8cd793d812f96f4f845105228b760865cb07a3d877a539be29aeae208717a86f",
+    "LLM/sweep_common.sh": "63bd6533523961222a58af54a7fc21639d6b07218356685d6462036918a1972b",
+    "LLM/test_llm.py": "f961a0107d4ffd3bb9be50cce4e90f8b1ed6b24c468b9f89cf27bab95525607a",
+    "LLM/logit_drift_map.py": "6307e143c883042c38166474ffaa1238efb2a95775aa442bc62374da6402fdab",
+    "LLM/run_remote_tmux.sh": "711e2c429e550711979ec69f55fab5450a2e2749021ab3db9ee4761a9d196042",
+    "LLM/search_precision_config.py": "5f6baf9da5c28715037be8cdc71563f50e4bc4831bac6efe4aa5fb22adb48129",
+    "LLM/capture_logits.py": "cde0ce0d5badc70c83b623673bcda05c3a99a2acf945c09c7f021602da8a7cec",
+    "LLM/README.md": "159d631670aa0d04e6ca74d5deae31e25c3a37728684fa1efdd5514e4b2a34cb",
+    "LLM/plot_paper_figures.py": "797b9c5a076c8fcb40d5d4adf286b40f754df1f69a505b0d65cc68e0ac463529",
+    "LLM/do_global_perplexity.sh": "eaeb0975a25b116f037163b8a6f22a1a65781b87a61a648a5d8f7bf05eb65e6a",
+    "LLM/do_generation.sh": "ebfd5ca8bfd253c4952732d557594a97fd73726a36e89eaa909d77cc1f185f68",
+    "LLM/drift_study.py": "5f97cf041f0454b567c204efcac8b8fa9cda12f6bfb19942904670b9981d0888",
+    "LLM/propositions/prop_analysis.py.bak-20260818": "1d692e336199eabed8804d1ed66bd4a9138ec33111c9ef26f1738e408f514516",
+    "LLM/propositions/prop_analysis.py": "88194e234130b3d172627696c240614404630bdc85d1f0617b9fa5617373b113",
+    "LLM/propositions/README.md": "66fb97d78e4f4f612f9c8938179f9c5134c85bfd5ab2cd2481e0145df80709ca",
+    "LLM/propositions/prop_numeric.cpp": "2adc07c1eba7522bdb4e3991d57c1cac3d33830da60f3b027106ee4f25a607c3",
+    "LLM/bench/prism_bench.cpp": "a7a7c22df2eca361318acc6d029191e6dbba3278af51cd4a8670bbfc9318b69a",
+    "LLM/slurm/auxiliary_evidence.sbatch": "0c4f4f1305dbf95d96fad13efe76b4803648d099f3dfeebbf8ca0e7b58ef1bf8",
+    "LLM/slurm/gen_decomposition_configs.sh": "48d6babc6bb569bd91e4cbf7bbb7c01febbf989e288bcd0417e4a0b2835793ba",
+    "LLM/slurm/decomp_array.sbatch": "bba28905d216bf929e3131b3b11164c44ba8850ba7b452253fd6f0a5c84cb29c",
+    "LLM/slurm/gen_window_configs.sh": "49803a742fa9210d48e538dafb5bd83d43fcd5397a8a7d735b2dc73598e0f485",
+    "LLM/slurm/gen_configs.sh": "217d98fd657405b8389cb4f23248f715d2391249782d7b1647feb78195a33d7d",
+    "LLM/slurm/run_exact_loss_window.py": "aa98f777375638c537a45d08cb0dea84a80aff19182225c1f6c000c0263453c6",
+    "LLM/slurm/gen_paper_missing_configs.sh": "01c60052c3b6e9eac02cad4951ccee9c362a11cf881129db9314f38315f82e61",
+    "LLM/slurm/finish_drift_study.py": "592260dfd3b9c9466aaadafaf05f36458c3f03ddfab6e00a4b4517ba5d9da4f2",
+    "LLM/slurm/gen_search_configs.sh": "588dfac05a3be7170b435fbd96f9c239dcdc4dd4eab7adb2c738dcb16a7c9f80",
+    "LLM/slurm/sweep_array.sbatch": "8edaa5e53628c1c0af0c51a9bc69c1f104bf4d9e59c211a80b1a4b433ea1951b",
+    "LLM/slurm/prepare_exact_loss_windows.py": "23e1fb255759fa5b4bcac6bca272fab6900d6d5bd8742f579904394122555a63",
+    "python/pyproject.toml": "406d7a09eed53b13da0460f34e408a0715e22fa0fd5cf8b873ec0bef183f7d57",
+    "python/fuzzy_torch/__init__.py": "99f0c8bbadfffd9c05bd352fb9d26df1cfc51253ee6f68f4f35f8e840e6c2496",
+    "python/fuzzy_torch/precision.py": "7c5bf02d9c36d66d4ce1a4ecac2a08261731c411dba11cc8baa763a2591d3b46"
+  },
+  "purpose": "Exploratory screen; fresh confirmation seeds required after selection.",
+  "created": 1789493568.876667
+}

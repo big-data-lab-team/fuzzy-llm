@@ -1,0 +1,44 @@
+[
+  {
+    "mlp_bits": 8,
+    "status": "complete",
+    "rn": 66.6553,
+    "mixed_mean": 64.62676,
+    "mixed_sd": 0.6796574674054581,
+    "rn_minus_mixed": 2.0285399999999925,
+    "exploratory_ci": [
+      1.184633791612287,
+      2.872446208387698
+    ],
+    "relative_reduction": 0.030433288875753205,
+    "note": "Selection screen only; intervals are not adjusted for search."
+  },
+  {
+    "mlp_bits": 7,
+    "status": "complete",
+    "rn": 68.8917,
+    "mixed_mean": 64.88998000000001,
+    "mixed_sd": 0.978154641148323,
+    "rn_minus_mixed": 4.001719999999992,
+    "exploratory_ci": [
+      2.787180597410197,
+      5.216259402589786
+    ],
+    "relative_reduction": 0.05808711354197954,
+    "note": "Selection screen only; intervals are not adjusted for search."
+  },
+  {
+    "mlp_bits": 6,
+    "status": "complete",
+    "rn": 96.068,
+    "mixed_mean": 69.0092,
+    "mixed_sd": 2.070129597392394,
+    "rn_minus_mixed": 27.05879999999999,
+    "exploratory_ci": [
+      24.488394607301803,
+      29.62920539269818
+    ],
+    "relative_reduction": 0.28166298871632584,
+    "note": "Selection screen only; intervals are not adjusted for search."
+  }
+]

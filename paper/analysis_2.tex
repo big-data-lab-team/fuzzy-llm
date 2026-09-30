@@ -1,0 +1,270 @@
+\FloatBarrier
+\subsection{Error propagation and loss decomposition at the output softmax}
+\label{sec:analysis-softmax}
+
+\Cref{sec:analysis-mlp} bounds the perturbation that low-precision arithmetic
+injects into one layer.  At the network output, the error travels to the logits
+and alters each token's cross-entropy loss.
+This subsection analyzes that interface to identify, term by term,
+why SR and RN affect the language-model head differently.
+
+\paragraph{Exact decomposition of the cross-entropy loss change.}
+Fix one token with reference logits $\lambda\in\R^V$, target class~$y$, and
+predictive distribution $p=\softmax(\lambda)$.  Its cross-entropy loss is
+\begin{equation}
+  \mathcal L(\lambda)=-\lambda_y+\log\sum_{j=1}^Ve^{\lambda_j}.
+  \label{eq:token-cross-entropy}
+\end{equation}
+Let the low-precision run perturb logit $j$ by~$\Delta_j$.  Substituting
+$\lambda+\Delta$ into \cref{eq:token-cross-entropy} and subtracting gives
+the exact signed loss change
+\begin{equation*}
+  \delta\mathcal L(\Delta)
+  :=\mathcal L(\lambda+\Delta)-\mathcal L(\lambda)
+  =-\Delta_y+\log\sum_{j=1}^Vp_je^{\Delta_j}.
+\end{equation*}
+Let $\widetilde p=\softmax(\lambda+\Delta)$ and let
+$D_{\mathrm{KL}}(p\,\|\,\widetilde p)$ denote the Kullback--Leibler (KL)
+divergence from $p$ to $\widetilde p$. Direct substitution gives
+\begin{equation*}
+  D_{\mathrm{KL}}(p\,\|\,\widetilde p)
+  =\sum_{j=1}^V p_j\log\frac{p_j}{\widetilde p_j}
+  =\log\sum_{j=1}^V p_j e^{\Delta_j}-p^\top\Delta,
+\end{equation*}
+and therefore, with $g:=p-e_y$, the exact decomposition
+\begin{equation}
+  \delta\mathcal L(\Delta)
+  =g^\top\Delta+D_{\mathrm{KL}}(p\,\|\,\widetilde p).
+  \label{eq:one-token-kl-decomposition}
+\end{equation}
+The linear term is signed and records the target-specific shift, whereas the
+KL term is non-negative and records the change in the full predictive
+distribution.
+
+\paragraph{Local quadratic form of the KL term.}
+The KL divergence satisfies $D_{\mathrm{KL}}(p\,\|\,p)=0$ and has vanishing gradient
+at $\Delta=0$. Its local quadratic approximation is governed by the Fisher
+information matrix of the categorical distribution parameterized by logits,
+\begin{equation*}
+  H = \diag(p) - pp^\top,
+\end{equation*}
+which coincides with the Hessian of the cross-entropy loss $\nabla^2_\lambda \mathcal L(\lambda)$
+\citep[Section~6]{martens2020new}. Although the KL divergence is asymmetric, both
+orientations share the same second-order expansion at $\Delta=0$:
+\begin{equation}
+  D_{\mathrm{KL}}(p\,\|\,\widetilde p)
+  =\tfrac12\,\Delta^\top H\Delta+r,
+  \qquad r=\mathcal O(\|\Delta\|^3).
+  \label{eq:logit-kl-second-order}
+\end{equation}
+Because $H$ is the covariance matrix of a single categorical draw with probabilities $p$,
+for any perturbation $\Delta \in \R^V$ the quadratic form equals the variance across classes:
+\begin{equation}
+  \Delta^\top H \Delta = \sum_{j=1}^V p_j \Delta_j^2 - (p^\top\Delta)^2 = \Var_p(\Delta) \ge 0,
+  \label{eq:fisher-variance-identity}
+\end{equation}
+confirming that $H \succeq 0$ and that the local KL penalty charges variations in
+$\Delta$ across classes considered plausible by $p$.
+Fisher information similarly guides parameter sensitivity in post-training
+quantization (e.g., SqueezeLLM, \citealp{kim2024squeezellm}); in logit space,
+$H$ arises analytically to penalize non-uniform operational perturbations directly.
+
+An exact consequence of the logit formulation is \emph{shift invariance}
+\citep{blanchard2021accurately}: any uniform perturbation $\Delta = c\bfone$ leaves
+the predictive distribution identical ($\widetilde p = \softmax(\lambda + c\bfone) = p$),
+so that $D_{\mathrm{KL}}(p\,\|\,\widetilde p) = 0$.
+Likewise, $g^\top (c\bfone) = c(p-e_y)^\top\bfone = 0$, ensuring that $\delta\mathcal L(c\bfone) = 0$
+exactly. The one-dimensional subspace $\operatorname{span}(\bfone)$ constitutes the null
+space of the Fisher metric ($H\bfone = \mathbf{0}$).
+
+\paragraph{The two probability spaces.}
+Conditional on a fixed token~$w$, two distinct probability spaces arise for SR
+and RN.
+\begin{enumerate}[leftmargin=1.7em,label=(\roman*)]
+  \item Under SR, every rounded elementary operation along the trajectory draws
+        fresh pseudorandom bits. This operational randomness makes the
+        logit perturbation $\Delta_{\SR}^{(w)}$ a random vector, driven by
+        elementary rounding errors that satisfy the mean-independence of \cref{sec:analysis-mlp}.
+
+  \item Under RN, every operation returns one deterministic value: there is no
+        operational randomness. Conditional on a fixed token,
+        \begin{equation}
+          \E_{\RN}[\Delta_{\RN}^{(w)}\mid w]=\Delta_{\RN}^{(w)},
+          \qquad
+          \Sigma_{\RN}^{(w)}:=\operatorname{Cov}_{\RN}(\Delta_{\RN}^{(w)}\mid w)=0.
+          \label{eq:rn-degenerate}
+        \end{equation}
+\end{enumerate}
+
+\paragraph{Drift--variance decomposition.}
+For either mode $m\in\{\SR,\RN\}$, decompose the logit perturbation as
+\begin{equation}
+  \Delta_m=b_m+\xi_m,
+  \qquad
+  \E_m[\xi_m]=0,
+  \label{eq:local-bias-cov}
+\end{equation}
+where $b_m:=\E_m[\Delta_m]$ is the drift and $\xi_m$ is the centered
+fluctuation, with covariance $\Sigma_m:=\operatorname{Cov}_m(\xi_m)$.
+By \cref{eq:rn-degenerate}, on a fixed token RN carries
+$b_{\RN}=\Delta_{\RN}$ and $\Sigma_{\RN}=0$: its entire perturbation is
+drift.
+
+Substituting $\Delta_m=b_m+\xi_m$ into the local KL expansion
+\cref{eq:logit-kl-second-order} and taking expectations $\E_m[\cdot]$ over
+operational randomness (over rounding draws for SR, and degenerate for
+deterministic RN), the linear term in \cref{eq:one-token-kl-decomposition} yields
+$\E_m[g^\top\Delta_m]=g^\top b_m$.
+The quadratic term expands as
+\begin{equation*}
+  \Delta_m^\top H\Delta_m
+  =b_m^\top Hb_m + 2b_m^\top H\xi_m + \xi_m^\top H\xi_m.
+\end{equation*}
+Taking expectations, the cross term vanishes since $\E_m[\xi_m]=0$, and the
+quadratic fluctuation term evaluates to $\E_m[\xi_m^\top H\xi_m] = \operatorname{tr}(H\Sigma_m)$.
+Thus the KL contribution itself separates as
+\begin{equation*}
+  \E_m[D_{\mathrm{KL}}(p\,\|\,\widetilde p_m)]
+  =\tfrac12\,b_m^\top Hb_m +\tfrac12\operatorname{tr}(H\Sigma_m) +R_m,
+\end{equation*}
+where $R_m:=\E_m[r]$.  Combining this KL decomposition with the linear
+target-shift term yields the expected excess loss:
+\begin{equation}
+  \E_m[\delta\mathcal L]
+  =\underbrace{g^\top b_m}_{D_m:\text{ drift}}
+  +\underbrace{\tfrac12\,b_m^\top Hb_m}_{Q_m:\text{ curvature of drift}}
+  +\underbrace{\tfrac12\operatorname{tr}(H\Sigma_m)}_{V_m:\text{ variance penalty}}
+  +\underbrace{R_m}_{\text{remainder}},
+  \label{eq:head-full-comparison}
+\end{equation}
+where $D_m$ is signed; $Q_m$ and $V_m$ are non-negative by $H\succeq0$.
+Removing drift is not free: an unbiased mode avoids the drift terms $D_m+Q_m$,
+but pays the variance penalty $V_m$.
+
+\subsection{Empirical validation of the drift--variance trade-off}
+\label{sec:analysis-empirical-drift}
+
+We evaluate this trade-off on DistilGPT-2 using $N=1020$ scored WikiText-2
+positions, with reference loss $\mathcal L_0=4.1354$ nats.
+The decomposition uses $32$ SR seeds at $t=4,\ldots,10$, with one
+deterministic RN run per precision. We use bias-corrected quadratic
+estimators.  The logit measurement protocol and the estimators are detailed in \cref{app:drift-measurements}.
+
+\paragraph{SR avoids systematic drift but incurs local fluctuation.}
+The decomposition $\Delta_m = b_m + \xi_m$ (\cref{eq:local-bias-cov})
+splits each logit perturbation into drift $b_m = \E_m[\Delta_m]$ and centered
+fluctuation $\xi_m$. For RN the split is trivial: $b_{\RN} = \Delta_{\RN}$
+and $\xi_{\RN} = 0$, so the perturbation at each token--coordinate pair is
+entirely deterministic drift. For SR, the perturbation is stochastic,
+so its expected magnitude is measured by its operational root mean square.
+All plotted quantities represent the operational statistics of a
+single forward pass; multiple seeds ($S=32$) are used exclusively to construct
+empirical estimators for these quantities.
+
+\Cref{fig:drift-distribution} visualizes the three quantities that enter the
+loss decomposition (\cref{eq:head-full-comparison}). Row~(i) shows the
+operational perturbation magnitude per run across all token--coordinate pairs.
+At the MLP down-projection, RN accumulates deterministic drift, whereas SR's
+per-run perturbation is smaller. At the head, however, SR's per-run perturbation
+is larger than RN's. This does not contradict the worst-case bounds of
+\cref{thm:vector-bc}. At the head, inputs are centered by LayerNorm;
+empirically, we observe that this centering induces cancellation in RN rounding
+errors, preventing the accumulation of systematic drift. Because the projection
+is linear, SR guarantees unbiasedness, but incurs higher local variance to
+do so (local errors up to $1.0u$, compared to RN's strict $0.5u$ bound). In the
+absence of systematic drift, the accumulated perturbation is governed by this
+local variance, which is consistent with SR perturbations being larger than RN
+at the head.
+
+Nevertheless, not all of this perturbation magnitude translates to excess loss.
+By shift invariance (\cref{eq:fisher-variance-identity}), a per-token uniform
+shift leaves softmax probabilities unchanged, so only the non-uniform
+component feeds into $Q_m$. Row~(ii) isolates this loss-relevant component
+by centering the drift (subtracting each token's vocabulary mean from $b_j$).
+The reduction is pronounced at the MLP: RN's spread shrinks by an order
+of magnitude, confirming that most of its accumulation was uniform.
+SR's centered drift is near-zero everywhere.
+
+Row~(iii) removes the uniform component of the fluctuation (to which the
+softmax is insensitive by shift invariance). Let $\tilde\xi_j = \xi_j - p^\top\xi$
+denote the $p$-centered operational fluctuation; the row reports its standard
+deviation $\mathrm{std}(\tilde\xi_j)$. RN is deterministic
+($\xi_{\RN}=0$). The centered fluctuation is smaller at the MLP than at
+the head.
+MLP noise is predominantly a uniform shift of the logits, whereas
+head noise changes the differences between logits and therefore the softmax
+output.
+\begin{figure}[!htb]
+  \centering
+  \safeincludegraphics[width=\linewidth]{figures/drift_boxplot.pdf}
+  \vspace{-1em}
+  \caption{Operational decomposition of logit perturbations across all $51{,}262{,}140$ token--coordinate pairs (for the MLP, rounding errors are injected at the down-projection and propagated to the final logits).
+  \textbf{(i)} Per-run RMS perturbation for pair $j$: $|\Delta_j|$ for deterministic RN ($\xi_j=0$), and $\sqrt{\mathbb{E}[\Delta_j^2]} = \sqrt{b_j^2 + \operatorname{std}(\xi_j)^2}$ for SR.
+  \textbf{(ii)} Centered drift $\tilde b_j$ (per-token vocabulary mean removed): non-uniform component charged via $Q_m$.
+  \textbf{(iii)} Operational standard deviation of the $p$-centered fluctuation $\mathrm{std}(\tilde\xi_j)$, where $\tilde\xi_j = \xi_j - p^\top\xi$; RN: $\xi_{\RN}=0$.
+  Boxes IQR, median line, 1st--99th-percentile whiskers; vertical scales differ.}
+  \label{fig:drift-distribution}
+\end{figure}
+
+\paragraph{The role of input distributions.}
+The accumulation of deterministic rounding errors in inner products depends heavily on the distribution of the operands \citep{elarar2022error}. When inputs are predominantly positive (such as the outputs of the GELU activation at the MLP down-projection), RN rounding errors become biased and, depending on the weight distribution, systematically accumulate into a large drift. Conversely, when inputs are zero-centered (such as the outputs of LayerNorm at the language-model head), positive and negative RN errors tend to cancel, preventing the accumulation of systematic drift.
+
+\paragraph{Loss decomposition at the language-model head.}
+\label{par:head-cost-unbiasedness}
+Although SR produces smaller logit drift at the head, it incurs higher excess
+loss than RN throughout $t=4,\ldots,10$
+(\cref{tab:decomposition,fig:head-decomposition-terms}). The decomposition in
+\cref{eq:head-full-comparison} explains the reversal. RN is deterministic
+($V_{\RN}=0$), so its perturbation contributes only through $D_{\RN}$,
+$Q_{\RN}$, and $R_{\RN}$. SR's operational randomness introduces non-uniform
+fluctuations---the large $p$-centered fluctuation visible in
+\cref{fig:drift-distribution}~(iii)---that incur the quadratic cost
+$V_{\SR}=\tfrac12\operatorname{tr}(H\Sigma_{\SR})$. At the head the noise is
+genuinely non-uniform across the vocabulary, so the softmax cannot ignore it.
+
+Over $t=6,\ldots,9$, the variance penalty $V_{\SR}$ accounts for $100$--$105\%$ of SR's
+excess loss, while $D_{\SR}$ and $Q_{\SR}$ lie within $1.6$ standard errors of
+zero. For RN, the perturbation carries no fluctuation ($V_{\RN}=0$);
+its non-uniform drift produces $Q_{\RN}=1.58$ and $R_{\RN}=0.50$
+nats at $t=6$, for a total excess of $2.12$ nats---less than half of SR's
+$4.40$ nats.
+
+\paragraph{Loss decomposition at the MLP down-projection.}
+At the MLP down-projection, the loss ordering reverses:
+SR has an excess loss of $0.05$ nats against RN's $0.24$ at $t=6$
+(\cref{fig:mlp-decomposition-terms,tab:decomposition}).
+The 3072-length inner product allows deterministic rounding errors under RN
+to align across many terms, producing a wide, non-uniform drift dispersion
+that incurs a curvature penalty of $Q_{\RN}=0.29$ nats.
+
+SR prevents this systematic alignment, keeping $Q_{\SR}$ at $0.017$ nats.
+Although SR's raw fluctuation is comparable to or larger than at the head
+($6.23$ versus $4.27$ logits RMS at $t=6$), the noise has far fewer degrees of
+freedom. At the head, SR injects rounding errors directly into all $50{,}257$
+logits, scrambling the differences between them. At the MLP down-projection, SR
+injects noise into the $768$-dimensional hidden state. Restricted to these $768$
+degrees of freedom, the $50{,}257$ logits are highly coupled.  This
+dimensionality restriction likely explains why the MLP fluctuation manifests
+predominantly as a uniform shift across the vocabulary, which the softmax simply
+ignores. The near-uniform shift also depends on the trained output weights and
+the directions of the propagated error. As a result, the $p$-centered
+fluctuation in \cref{fig:drift-distribution}(iii) collapses at the MLP relative
+to the head, yielding $V_{\SR}=0.083$ nats, fifty times smaller than at the
+head. The reduction in drift curvature therefore more than compensates for SR's
+variance penalty.
+
+\begin{figure}[!htb]
+  \centering
+  \safeincludegraphics[width=\linewidth]{figures/site_decomposition_terms.pdf}
+  \caption{Stacked decomposition of expected excess loss
+    $\E_m[\delta\mathcal L] = D_m + Q_m + V_m + R_m$ at the head and MLP
+    down-projection at $t=6,7,8$. Positive components stack upward from zero
+    and negative components downward; solid horizontal marks indicate the
+    measured mean excess loss (with one standard error for SR; RN is
+    deterministic). At the head, the variance penalty $V$
+    dominates SR excess loss; at the MLP down-projection, RN is dominated by drift
+    curvature $Q$. Full values are in \cref{tab:decomposition}.}
+  \label{fig:head-decomposition-terms}
+  \label{fig:mlp-decomposition-terms}
+\end{figure}
+

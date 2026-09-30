@@ -1,0 +1,492 @@
+% ---------------------------------------------------------------------------
+% Stochastic rounding: algorithms and error analysis
+% ---------------------------------------------------------------------------
+
+@article{de2025error,
+  title   = {Error analysis of sum-product algorithms under stochastic rounding},
+  author  = {de Oliveira Castro, Pablo and El Arar, El-Mehdi and Petit, Eric and Sohier, Devan},
+  journal = {SIAM Journal on Scientific Computing},
+  volume  = {47},
+  number  = {6},
+  pages   = {B1481--B1502},
+  year    = {2025},
+  doi     = {10.1137/24M1710966}
+}
+
+@article{forsythe1959rounding,
+  title   = {Reprint of a Note on Rounding-Off Errors},
+  author  = {Forsythe, George E.},
+  journal = {SIAM Review},
+  volume  = {1},
+  number  = {1},
+  pages   = {66--67},
+  year    = {1959},
+  doi     = {10.1137/1001011}
+}
+
+@article{fasi2021algorithms,
+  author  = {Fasi, Massimiliano and Mikaitis, Mantas},
+  journal = {IEEE Transactions on Emerging Topics in Computing},
+  title   = {Algorithms for Stochastically Rounded Elementary Arithmetic Operations in {IEEE} 754 Floating-Point Arithmetic},
+  year    = {2021},
+  volume  = {9},
+  number  = {3},
+  pages   = {1451--1466},
+  doi     = {10.1109/TETC.2021.3069165}
+}
+
+@article{croci2022stochastic,
+  title   = {Stochastic rounding: implementation, error analysis and applications},
+  author  = {Croci, Matteo and Fasi, Massimiliano and Higham, Nicholas J. and Mary, Theo and Mikaitis, Mantas},
+  journal = {Royal Society Open Science},
+  volume  = {9},
+  number  = {3},
+  pages   = {211631},
+  year    = {2022},
+  doi     = {10.1098/rsos.211631}
+}
+
+@techreport{fevotte2016verrou,
+  title       = {{VERROU}: Assessing floating-point accuracy without recompiling},
+  author      = {F{\'e}votte, Fran{\c{c}}ois and Lathuili{\`e}re, Bruno},
+  year        = {2016},
+  institution = {EDF R\&D},
+  note        = {HAL: hal-01383417}
+}
+
+@inproceedings{denis2016verificarlo,
+  title     = {Verificarlo: checking floating point accuracy through {Monte Carlo} Arithmetic},
+  author    = {Denis, Christophe and de Oliveira Castro, Pablo and Petit, Eric},
+  booktitle = {2016 IEEE 23rd Symposium on Computer Arithmetic (ARITH)},
+  pages     = {55--62},
+  year      = {2016},
+  doi       = {10.1109/ARITH.2016.31}
+}
+
+@inproceedings{3600270.3602468,
+  author    = {Dettmers, Tim and Lewis, Mike and Belkada, Younes and Zettlemoyer, Luke},
+  title     = {{LLM.int8()}: 8-bit matrix multiplication for transformers at scale},
+  year      = {2022},
+  isbn      = {9781713871088},
+  publisher = {Curran Associates Inc.},
+  address   = {Red Hook, NY, USA},
+  booktitle = {Proceedings of the 36th International Conference on Neural Information Processing Systems},
+  pages     = {30318--30332},
+  articleno = {2198},
+  numpages  = {15},
+  location  = {New Orleans, LA, USA},
+  series    = {NIPS '22},
+  doi       = {10.52202/068431-2198}
+}
+
+@article{gong2024what,
+  title   = {What Makes Quantization for Large Language Model Hard? An Empirical Study from the Lens of Perturbation},
+  author  = {Gong, Zhuocheng and Liu, Jiahao and Wang, Jingang and Cai, Xunliang and Zhao, Dongyan and Yan, Rui},
+  journal = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume  = {38},
+  number  = {16},
+  pages   = {18082--18089},
+  year    = {2024},
+  doi     = {10.1609/aaai.v38i16.29765}
+}
+
+@inproceedings{lin2024awq,
+  title     = {{AWQ}: Activation-aware Weight Quantization for On-Device {LLM} Compression and Acceleration},
+  author    = {Lin, Ji and Tang, Jiaming and Tang, Haotian and Yang, Shang and Chen, Wei-Ming and Wang, Wei-Chen and Xiao, Guangxuan and Dang, Xingyu and Gan, Chuang and Han, Song},
+  booktitle = {Proceedings of Machine Learning and Systems},
+  volume    = {6},
+  pages     = {87--100},
+  year      = {2024}
+}
+
+@inproceedings{xiao2023smoothquant,
+  title     = {{SmoothQuant}: Accurate and Efficient Post-Training Quantization for Large Language Models},
+  author    = {Xiao, Guangxuan and Lin, Ji and Seznec, Mickael and Wu, Hao and Demouth, Julien and Han, Song},
+  booktitle = {Proceedings of the 40th International Conference on Machine Learning},
+  pages     = {38087--38099},
+  year      = {2023},
+  volume    = {202},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR}
+}
+
+% ---------------------------------------------------------------------------
+% Floating-point building blocks: EFTs, splitting, FMA emulation
+% ---------------------------------------------------------------------------
+
+@book{higham2002accuracy,
+  title     = {Accuracy and Stability of Numerical Algorithms},
+  author    = {Higham, Nicholas J.},
+  edition   = {2nd},
+  publisher = {SIAM},
+  address   = {Philadelphia, PA},
+  year      = {2002},
+  doi       = {10.1137/1.9780898718027}
+}
+
+@book{muller2018handbook,
+  title     = {Handbook of Floating-Point Arithmetic},
+  author    = {Muller, Jean-Michel and Brunie, Nicolas and de Dinechin, Florent and
+               Jeannerod, Claude-Pierre and Joldes, Mioara and Lef{\`e}vre, Vincent and
+               Melquiond, Guillaume and Revol, Nathalie and Torres, Serge},
+  edition   = {2nd},
+  publisher = {Birkh{\"a}user},
+  year      = {2018},
+  doi       = {10.1007/978-3-319-76526-6}
+}
+
+@article{dekker1971float,
+  title   = {A floating-point technique for extending the available precision},
+  author  = {Dekker, Theodorus J.},
+  journal = {Numerische Mathematik},
+  volume  = {18},
+  number  = {3},
+  pages   = {224--242},
+  year    = {1971},
+  doi     = {10.1007/BF01397083}
+}
+
+@book{sterbenz1974floating,
+  title     = {Floating-Point Computation},
+  author    = {Sterbenz, Pat H.},
+  publisher = {Prentice-Hall},
+  address   = {Englewood Cliffs, NJ},
+  year      = {1974}
+}
+
+@article{graillat2023emulation,
+  title   = {Emulation of the {FMA} in rounded-to-nearest floating-point arithmetic},
+  author  = {Graillat, Stef and Muller, Jean-Michel},
+  journal = {Journal of Computational and Applied Mathematics},
+  volume  = {433},
+  pages   = {115304},
+  year    = {2023},
+  doi     = {10.1016/j.cam.2023.115304}
+}
+
+@article{boldo2011exact,
+  title   = {Exact and approximated error of the {FMA}},
+  author  = {Boldo, Sylvie and Muller, Jean-Michel},
+  journal = {IEEE Transactions on Computers},
+  volume  = {60},
+  number  = {2},
+  pages   = {157--164},
+  year    = {2011},
+  doi     = {10.1109/TC.2010.139}
+}
+
+@inproceedings{jeannerod2018splitting,
+  title     = {On various ways to split a floating-point number},
+  author    = {Jeannerod, Claude-Pierre and Muller, Jean-Michel and Zimmermann, Paul},
+  booktitle = {2018 IEEE 25th Symposium on Computer Arithmetic (ARITH)},
+  pages     = {53--60},
+  year      = {2018},
+  doi       = {10.1109/ARITH.2018.8464793}
+}
+
+@misc{ieee754-2019,
+  title        = {{IEEE} Standard for Floating-Point Arithmetic},
+  author       = {{IEEE}},
+  howpublished = {IEEE Std 754-2019},
+  year         = {2019},
+  doi          = {10.1109/IEEESTD.2019.8766229}
+}
+
+% ---------------------------------------------------------------------------
+% Implementation substrate: SIMD abstraction and random number generation
+% ---------------------------------------------------------------------------
+
+@misc{highway,
+  title        = {Highway: Efficient and portable {SIMD}/{vector} {C++} library},
+  author       = {{Google}},
+  howpublished = {\url{https://github.com/google/highway}},
+  year         = {2024}
+}
+
+@misc{prism,
+  title        = {{PRISM}: Probabilistic Rounding with Instruction Set Management},
+  author       = {Chatelain, Yohan},
+  howpublished = {\url{https://github.com/verificarlo/prism}},
+  year         = {2026}
+}
+
+@article{gonzalezpepe2026fuzzy,
+  title   = {Fuzzy {PyTorch}: Rapid Numerical Variability Evaluation for Deep Learning Models},
+  author  = {Gonz{\'a}lez-Pepe, In{\'e}s and Akhaddar, Hiba and Glatard, Tristan and Chatelain, Yohan},
+  journal = {Transactions on Machine Learning Research},
+  year    = {2026},
+  note    = {arXiv:2605.25991}
+}
+
+% ---------------------------------------------------------------------------
+% Models, datasets, and architecture
+% ---------------------------------------------------------------------------
+
+@techreport{radford2019language,
+  title       = {Language Models are Unsupervised Multitask Learners},
+  author      = {Radford, Alec and Wu, Jeffrey and Child, Rewon and Luan, David and Amodei, Dario and Sutskever, Ilya},
+  institution = {OpenAI},
+  year        = {2019}
+}
+
+@misc{distilgpt2modelcard,
+  title        = {{DistilGPT2} Model Card},
+  author       = {{Hugging Face}},
+  year         = {2020},
+  howpublished = {\url{https://huggingface.co/distilbert/distilgpt2}}
+}
+
+@inproceedings{merity2017pointer,
+  title     = {Pointer Sentinel Mixture Models},
+  author    = {Merity, Stephen and Xiong, Caiming and Bradbury, James and Socher, Richard},
+  booktitle = {International Conference on Learning Representations},
+  year      = {2017}
+}
+
+@inproceedings{vaswani2017attention,
+  title     = {Attention Is All You Need},
+  author    = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and
+               Jones, Llion and Gomez, Aidan N. and Kaiser, Lukasz and Polosukhin, Illia},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {30},
+  pages     = {5998--6008},
+  year      = {2017}
+}
+
+@inproceedings{xiong2020layer,
+  title     = {On Layer Normalization in the Transformer Architecture},
+  author    = {Xiong, Ruibin and Yang, Yunchang and He, Di and Zheng, Kai and Zheng, Shuxin and
+               Xing, Chen and Zhang, Huishuai and Lan, Yanyan and Wang, Liwei and Liu, Tie-Yan},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning},
+  pages     = {10524--10533},
+  year      = {2020},
+  volume    = {119},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR}
+}
+
+@article{hendrycks2016gelu,
+  title   = {Gaussian Error Linear Units ({GELUs})},
+  author  = {Hendrycks, Dan and Gimpel, Kevin},
+  journal = {arXiv preprint arXiv:1606.08415},
+  year    = {2016}
+}
+
+@inproceedings{wolf2020transformers,
+  title     = {Transformers: State-of-the-Art Natural Language Processing},
+  author    = {Wolf, Thomas and Debut, Lysandre and Sanh, Victor and Chaumond, Julien and
+               Delangue, Clement and Moi, Anthony and Cistac, Pierric and Rault, Tim and
+               Louf, R{\'e}mi and Funtowicz, Morgan and others},
+  booktitle = {Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations},
+  pages     = {38--45},
+  year      = {2020},
+  doi       = {10.18653/v1/2020.emnlp-demos.6}
+}
+
+% ---------------------------------------------------------------------------
+% Low-precision training and probabilistic error analysis
+% ---------------------------------------------------------------------------
+
+@article{connolly2021stochastic,
+  title   = {Stochastic rounding and its probabilistic backward error analysis},
+  author  = {Connolly, Michael P. and Higham, Nicholas J. and Mary, Theo},
+  journal = {SIAM Journal on Scientific Computing},
+  volume  = {43},
+  number  = {1},
+  pages   = {A566--A585},
+  year    = {2021},
+  doi     = {10.1137/20M1334796}
+}
+
+@article{higham2019new,
+  title   = {A new approach to probabilistic rounding error analysis},
+  author  = {Higham, Nicholas J. and Mary, Theo},
+  journal = {SIAM Journal on Scientific Computing},
+  volume  = {41},
+  number  = {5},
+  pages   = {A2815--A2835},
+  year    = {2019},
+  doi     = {10.1137/18M1226312}
+}
+
+@techreport{parker1997monte,
+  title       = {Monte Carlo arithmetic: exploiting randomness in floating-point arithmetic},
+  author      = {Parker, Douglass Stott},
+  year        = {1997},
+  institution = {University of California, Los Angeles},
+  number      = {CSD-970002}
+}
+
+@inproceedings{graillat2006improving,
+  title     = {Improving the compensated {Horner} scheme with a fused multiply and add},
+  author    = {Graillat, Stef and Langlois, Philippe and Louvet, Nicolas},
+  booktitle = {Proceedings of the 2006 ACM Symposium on Applied Computing},
+  pages     = {1323--1327},
+  year      = {2006},
+  doi       = {10.1145/1141277.1141585}
+}
+
+@misc{graphcore2020aifloat,
+  title        = {{AI-Float}: Mixed-Precision Arithmetic for {AI}, a Hardware Perspective},
+  author       = {{Graphcore}},
+  year         = {2020},
+  howpublished = {Technical white paper, \url{https://docs.graphcore.ai}}
+}
+
+@misc{nvidia2025ptx,
+  title        = {Parallel Thread Execution {ISA}: The {\texttt{cvt.rs}} Stochastic-Rounding Instruction},
+  author       = {{NVIDIA}},
+  year         = {2025},
+  howpublished = {CUDA Documentation, \url{https://docs.nvidia.com/cuda}}
+}
+
+@misc{aws2023neuroncore,
+  title        = {{NeuronCore-v2} Architecture},
+  author       = {{Amazon Web Services}},
+  year         = {2023},
+  howpublished = {Neuron Documentation, \url{https://awsdocs-neuron.readthedocs-hosted.com}}
+}
+
+@article{beuzeville2025deterministic,
+  title   = {Deterministic and probabilistic rounding error analysis of neural networks in floating-point arithmetic},
+  author  = {Beuzeville, Th{\'e}o and Buttari, Alfredo and Gratton, Serge and Mary, Theo},
+  journal = {IMA Journal of Numerical Analysis},
+  year    = {2026},
+  doi     = {10.1093/imanum/draf130}
+}
+
+@inproceedings{chmiel2023accurate,
+  title     = {Accurate Neural Training with 4-bit Matrix Multiplications at Standard Formats},
+  author    = {Chmiel, Brian and Banner, Ron and Hoffer, Elad and Ben-Yaacov, Hilla and Soudry, Daniel},
+  booktitle = {International Conference on Learning Representations},
+  year      = {2023}
+}
+
+@article{nvidia2025nvfp4,
+  title   = {Pretraining Large Language Models with {NVFP4}},
+  author  = {Abecassis, Felix and Agrusa, Anjulie and Ahn, Dong and Alben, Jonah and others},
+  journal = {arXiv preprint arXiv:2509.25149},
+  year    = {2025}
+}
+
+@inproceedings{ashkboos2024quarot,
+  title     = {{QuaRot}: Outlier-Free 4-Bit Inference in Rotated {LLMs}},
+  author    = {Ashkboos, Saleh and Mohtashami, Amirkeivan and Croci, Maximilian L. and Li, Bo and Cameron, Pashmina and Jaggi, Martin and Alistarh, Dan and Hoefler, Torsten and Hensman, James},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {37},
+  pages     = {100213--100240},
+  year      = {2024},
+  doi       = {10.52202/079017-3180}
+}
+
+@article{elarar2024bounds,
+  title   = {Bounds on non-linear errors for variance computation with stochastic rounding},
+  author  = {El Arar, El-Mehdi and Sohier, Devan and de Oliveira Castro, Pablo and Petit, Eric},
+  journal = {SIAM Journal on Scientific Computing},
+  volume  = {46},
+  number  = {5},
+  pages   = {B579--B599},
+  year    = {2024},
+  doi     = {10.1137/23M1563001}
+}
+
+@article{elarar2022error,
+  title   = {Stochastic Rounding Variance and Probabilistic Bounds: A New Approach},
+  author  = {El Arar, El-Mehdi and Sohier, Devan and de Oliveira Castro, Pablo and Petit, Eric},
+  journal = {SIAM Journal on Scientific Computing},
+  volume  = {45},
+  number  = {5},
+  pages   = {C255--C275},
+  year    = {2023},
+  doi     = {10.1137/22M1510819}
+}
+
+@article{ipsen2020probabilistic,
+  title   = {Probabilistic error analysis for inner products},
+  author  = {Ipsen, Ilse C. F. and Zhou, Hua},
+  journal = {SIAM Journal on Matrix Analysis and Applications},
+  volume  = {41},
+  number  = {4},
+  pages   = {1726--1741},
+  year    = {2020},
+  doi     = {10.1137/19M1270434}
+}
+
+% ---------------------------------------------------------------------------
+% Softmax/cross-entropy Hessian, shift invariance, and noise analysis
+% ---------------------------------------------------------------------------
+
+@article{martens2020new,
+  title   = {New Insights and Perspectives on the Natural Gradient Method},
+  author  = {Martens, James},
+  journal = {Journal of Machine Learning Research},
+  volume  = {21},
+  number  = {146},
+  pages   = {1--76},
+  year    = {2020},
+  url     = {https://www.jmlr.org/papers/v21/17-678.html}
+}
+
+@article{blanchard2021accurately,
+  title   = {Accurately Computing the Log-Sum-Exp and Softmax Functions},
+  author  = {Blanchard, Pierre and Higham, Desmond J. and Higham, Nicholas J.},
+  journal = {IMA Journal of Numerical Analysis},
+  volume  = {41},
+  number  = {4},
+  pages   = {2311--2330},
+  year    = {2021},
+  doi     = {10.1093/imanum/draa038}
+}
+
+@inproceedings{gupta2015deep,
+  title     = {Deep Learning with Limited Numerical Precision},
+  author    = {Gupta, Suyog and Agrawal, Ankur and Gopalakrishnan, Kailash and Narayanan, Pritish},
+  booktitle = {Proceedings of the 32nd International Conference on Machine Learning},
+  pages     = {1737--1746},
+  year      = {2015},
+  volume    = {37},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR}
+}
+
+@inproceedings{nagel2020adaround,
+  title     = {Up or Down? {A}daptive Rounding for Post-Training Quantization},
+  author    = {Nagel, Markus and Amjad, Rana Ali and van Baalen, Mart and Louizos, Christos and Blankevoort, Tijmen},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning},
+  pages     = {7197--7206},
+  year      = {2020},
+  volume    = {119},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR}
+}
+
+@inproceedings{zhang2019qpytorch,
+  title     = {{QPyTorch}: A Low-Precision Arithmetic Simulation Framework},
+  author    = {Zhang, Tianyi and Lin, Zhiqiu and Yang, Guandao and De Sa, Christopher},
+  booktitle = {2019 Fifth Workshop on Energy Efficient Machine Learning and Cognitive Computing - NeurIPS Edition (EMC2-NIPS)},
+  pages     = {10--13},
+  year      = {2019},
+  doi       = {10.1109/EMC2-NIPS53020.2019.00010}
+}
+
+@inproceedings{kim2024squeezellm,
+  title     = {{SqueezeLLM}: Dense-and-Sparse Quantization},
+  author    = {Kim, Sehoon and Hooper, Coleman and Gholami, Amir and Dong, Zhen and Li, Xiuyu and Shen, Sheng and Mahoney, Michael W. and Keutzer, Kurt},
+  booktitle = {Proceedings of the 41st International Conference on Machine Learning},
+  pages     = {23901--23923},
+  year      = {2024},
+  volume    = {235},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR}
+}
+
+
+@inproceedings{benali2024stochastic,
+  title        = {A Stochastic Rounding-Enabled Low-Precision Floating-Point {MAC} for {DNN} Training},
+  author       = {Ben Ali, Sami and Filip, Silviu-Ioan and Sentieys, Olivier},
+  booktitle    = {2024 Design, Automation \& Test in Europe Conference \& Exhibition (DATE)},
+  pages        = {1--6},
+  year         = {2024},
+  organization = {IEEE},
+  doi          = {10.23919/DATE58400.2024.10546735}
+}

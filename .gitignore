@@ -1,0 +1,44 @@
+# LaTeX auxiliary and build files
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.pdf
+*.toc
+*.lof
+*.lot
+*.synctex.gz
+*.pdfsync
+*-blx.bib
+*.run.xml
+*.bcf
+*.cb
+*.cb2
+
+# Recorded experiment logs and the figures are data, not build output: keep
+# them despite the *.log and *.pdf rules above.
+!results/*.log
+!results/prism_vs_mcaquad_512/*.log
+!figures/*.pdf
+
+# Raw sweep logs; results/sweep_records.csv stands in for them.
+results/perplexity_logs_epoch/
+
+# Outputs of a rerun (experiments/LLM/README.md): configuration lists written
+# next to the harness, failed runs, container images, and run outputs when
+# FUZZY_RUNS points inside the repository.
+experiments/LLM/*.txt
+!experiments/LLM/wikitext-2-test.txt
+*.log.failed
+*.sif
+fuzzy-llm-runs/
+
+# Python
+__pycache__/
+.venv/
+
+# Local tool settings
+.claude/

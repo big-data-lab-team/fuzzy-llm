@@ -1,0 +1,18 @@
+{
+  "execution_session": 1959,
+  "status_at_recording": "screen_complete",
+  "date": "2026-09-15",
+  "smoke": {
+    "mlp_c_proj_bits": 8,
+    "seed": 101,
+    "context": 32,
+    "tokens": 32,
+    "ppl": 471.7919,
+    "seconds": 132.92,
+    "purpose": "runtime check only"
+  },
+  "cluster": "unreachable: <cluster login node> timeout",
+  "comparison": "matched local RN controls",
+  "resumed": "2026-09-16T06:32:20.781016-04:00",
+  "finished": 1789558996.3199387
+}

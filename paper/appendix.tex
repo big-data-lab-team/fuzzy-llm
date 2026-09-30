@@ -1,0 +1,52 @@
+\section{Proof of Exactness of the Rounding Decision}
+\label{app:proof-exact-sign}
+
+This appendix provides the complete proof of \cref{thm:exact-sign} from
+\cref{sec:proof}, establishing that the floating-point evaluation of the
+decision boundary in \cref{alg:vpsr} preserves the exact mathematical sign under
+Hypotheses~1--3.
+
+\paragraph{Sign normalization.}
+Define the sign-normalized variables $\rho' = \rho \cdot s_{\rm dir}$, $\pi' = \pi \cdot s_{\rm dir}$, and $\tau' = \tau \cdot s_{\rm dir}$. Since $s_{\rm dir} \in \{-1, 1\}$, the theorem's conclusion is equivalent to
+\[
+(\rho' - \pi') + \tau' \ge 0 \iff \fl(\fl(\rho' - \pi') + \tau') \ge 0 .
+\]
+When $\rho \ne 0$, $s_{\rm dir} = \mathrm{sgn}(\rho)$, so $\rho' = |\rho| \ge 0$ and $\pi' = |\pi| \ge 0$ (since $\rho$ and $\pi$ share the same sign by Hypothesis~3). When $\rho = 0$, $s_{\rm dir} = \mathrm{sgn}(\tau)$, so $\rho' = 0$ and $\tau' = |\tau| \ge 0$.
+
+\begin{lemma}[No collapse to zero]
+\label[lemma]{lem:no-collapse}
+Under Hypotheses~1--3 of \cref{thm:exact-sign}, if
+$\rho' \ge \ulp_{\rm hw}$ and $(\rho' - \pi') + \tau' < 0$, then
+$\fl(\fl(\rho' - \pi') + \tau') \ne 0$.
+\end{lemma}
+
+\begin{proof}
+Assume for contradiction that the evaluated result collapses to zero: $\fl(\fl(\rho' - \pi') + \tau') = 0$.
+An IEEE~754 addition rounds to $0$ if and only if the exact sum is $0$.
+Thus, $\fl(\rho' - \pi') + \tau' = 0 \implies \fl(\rho' - \pi') = -\tau'$.
+We now establish the conditions for Sterbenz's Lemma~\citep{sterbenz1974floating} ($\frac{\rho'}{2} \le \pi' \le 2\rho'$):
+
+\begin{itemize}
+\item \textbf{Lower bound} ($\pi' \ge \frac{\rho'}{2}$): 
+Our starting assumption $(\rho' - \pi') + \tau' < 0$ rearranges directly to $\pi' > \rho' + \tau'$. By Hypotheses~1 and~2, $\tau' \ge -\ulp_{\rm hw}/2 \ge -\rho'/2$. Therefore, $\pi' > \rho' - \rho'/2 = \frac{\rho'}{2}$.
+
+\item \textbf{Upper bound} ($\pi' \le 2\rho'$): 
+The absolute rounding error of the subtraction is bounded by $\frac{1}{2}\ulp_{\rm hw}(-\tau')$. By Hypothesis~1, $|\tau'| \le \ulp_{\rm hw}/2$, and $\ulp_{\rm hw}(\cdot)$ is nondecreasing in magnitude, so $\frac{1}{2}\ulp_{\rm hw}(-\tau') \le \frac{1}{2}\ulp_{\rm hw}(\ulp_{\rm hw}/2) \le \ulp_{\rm hw}/2$. Thus, $|\fl(\rho' - \pi') - (\rho' - \pi')| = |-\tau' - (\rho' - \pi')| = |(\rho' - \pi') + \tau'| \le \ulp_{\rm hw}/2$. Applying the reverse triangle inequality yields $|\rho' - \pi'| - |\tau'| \le \ulp_{\rm hw}/2$. Since $|\tau'| \le \ulp_{\rm hw}/2$ and $\ulp_{\rm hw} \le \rho'$, we obtain $|\rho' - \pi'| \le \ulp_{\rm hw} \le \rho'$. This bound implies $\rho' - \pi' \ge -\rho'$, which gives $\pi' \le 2\rho'$.
+\end{itemize}
+
+Sterbenz's Lemma guarantees the subtraction is exact: $\fl(\rho' - \pi') = \rho' - \pi'$.
+Substituting this exactness back into our derivation yields $(\rho' - \pi') + \tau' = 0$, which contradicts our starting assumption that $(\rho' - \pi') + \tau' < 0$. Therefore, the collapse to $0$ is impossible.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:exact-sign}.]\par\nopagebreak
+\noindent\textbf{Case $\rho = 0$.}\enspace When $\rho' = 0$, the subtraction $\fl(\rho' - \pi') = \fl(-\pi') = -\pi'$ is exact, since negation is exact in IEEE~754. The evaluation reduces to a single rounding $\fl(-\pi' + \tau')$.
+For the forward direction ($\implies$), assume $(\rho' - \pi') + \tau' \ge 0$; then $\fl(-\pi' + \tau') \ge 0$ by monotonicity.
+For the backward direction ($\impliedby$), assume $\fl(-\pi' + \tau') \ge 0$ but, for contradiction, $(\rho' - \pi') + \tau' < 0$. Monotonicity forces $\fl(-\pi' + \tau') \le 0$, hence the result is exactly~$0$. But an IEEE~754 addition of representable inputs rounds to~$0$ only when the exact sum is~$0$, a contradiction.
+
+\smallskip
+\noindent\textbf{Case $\rho \ne 0$.}\enspace Hypothesis~2 gives $\rho' = |\rho| \ge \ulp_{\rm hw}$.
+For the forward direction ($\implies$), assume $(\rho' - \pi') + \tau' \ge 0$, i.e., $\rho' - \pi' \ge -\tau'$. By monotonicity, $\fl(\rho' - \pi') \ge \fl(-\tau') = -\tau'$, so $\fl(\rho' - \pi') + \tau' \ge 0$. Applying monotonicity once more, $\fl(\fl(\rho' - \pi') + \tau') \ge 0$.
+For the backward direction ($\impliedby$), assume $\fl(\fl(\rho' - \pi') + \tau') \ge 0$ but, for contradiction, $(\rho' - \pi') + \tau' < 0$. By the same monotonicity argument with reversed inequalities, $\fl(\fl(\rho' - \pi') + \tau') \le 0$. Combined with the assumption, the floating-point result is exactly $0$. But \cref{lem:no-collapse} shows this collapse is impossible, a contradiction.\hfill\BlackBox
+\let\endproof\relax
+\end{proof}
+

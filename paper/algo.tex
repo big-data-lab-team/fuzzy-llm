@@ -1,0 +1,145 @@
+\begin{figure}[t]
+    \centering
+    \begin{tikzpicture}[scale=1.1, every node/.style={scale=0.95}]
+        % Number line
+        \draw[thick, -{Stealth}] (-0.5,0) -- (6.5,0);
+
+        % Hardware precision ticks (ulp_hw) spaced by 1.0 unit
+        \foreach \x in {1.0, 2.0, 3.0, 4.0, 5.0} {
+            \draw[gray!70, thick] (\x, -0.08) -- (\x, 0.08);
+        }
+        % Label for a hardware tick interval
+        \draw[decorate, decoration={brace, amplitude=3pt}, gray!80]
+            (1.0, 0.15) -- (2.0, 0.15) node[midway, above=2pt, font=\tiny] {$\ulp_{\rm hw}$};
+
+        % Virtual Grid Points (Virtual precision ulp_t)
+        \filldraw (0,0) circle (2pt) node[below=8pt] {$\tilde{\sigma}$};
+        \filldraw (6,0) circle (2pt) node[below=8pt] {$\tilde{\sigma} + \ulp_t$};
+
+        % Exact Value x (sigma = 5.0, tau = 0.3 -> x = 5.3)
+        \coordinate (X) at (5.3, 0);
+        \filldraw[red] (X) circle (2pt) node[above=2pt, red] {\textbf{Exact $x$}};
+
+        % rho visualization
+        \draw[blue, thick] (0, 0.6) -- (5.0, 0.6) node[midway, above] {$\rho$};
+
+        % tau visualization
+        \draw[orange, thick] (5.0, 0.6) -- (5.3, 0.6) node[midway, above=1pt] {\footnotesize $\tau$};
+
+        % Round UP Zone (Shaded up to rho + tau)
+        \fill[red, opacity=0.1] (0,-0.2) rectangle (5.3, 0.9);
+
+        % Random sample pi 
+        \node (pi) at (3.5, -1) [draw, circle, inner sep=2pt, fill=gray!10] {$\pi$};
+        \draw[-{Latex}, gray, dashed, thick] (pi) -- (3.5, -0.1);
+
+        % Braces for the ulp_t
+        \draw[decorate, decoration={brace, mirror, amplitude=6pt}] (0,-1.3) -- (6,-1.3)
+            node[midway, below=8pt] {Sample threshold $\pi$ on $[0,\ulp_t)$};
+    \end{tikzpicture}
+    \caption{Geometric intuition for variable-precision stochastic rounding (VPSR). An exact value $x$ lies between virtual grid points at precision $t$. The hardware rounding $\sigma$ is truncated to $\tilde{\sigma}$, leaving a virtual truncation error $\rho$ and hardware residual $\tau$. A threshold $\pi$ is sampled on $[0,\ulp_t)$ to determine the virtual rounding direction.}
+    \label{fig:vpsr_eft}
+\end{figure}
+
+\begin{algorithm}[t]
+\caption{Variable-precision stochastic rounding}
+\label{alg:vpsr}
+\begin{algorithmic}[1]
+\Require Exact inputs $\sigma, \tau$, virtual precision $t$
+\Ensure Rounded value $r$ at virtual precision $t$
+\State $\tilde{\sigma} \leftarrow \mathrm{trunc}_t(\sigma)$ \Comment{Truncated value at precision $t$}
+\State $\rho \leftarrow \sigma - \tilde{\sigma}$ \Comment{Exact virtual truncation error}
+\State \textbf{if} $\rho = 0$ \textbf{ and } $\tau = 0$ \textbf{then} \Return $\tilde{\sigma}$ \Comment{Flattened to a mask in SIMD}
+\State $s_{\rm dir} \leftarrow \begin{cases} -1 & \text{if } (\rho = 0 \text{ and } \tau < 0) \text{ or } \rho < 0 \\ 1 & \text{otherwise} \end{cases}$ \Comment{Determine rounding direction sign}
+\Statex \Comment{The choice of $\eta$ ensures $\ulp_t$ will be the ULP of the exact value $x$ at precision $t$, i.e., $\ulp_t(x)$}
+\State $\eta \leftarrow \begin{cases} \mathrm{exponent}(\mathrm{predecessor\_abs}(\tilde{\sigma})) & \text{if } (s_{\rm dir} < 0) \neq (\tilde{\sigma} < 0) \\ \mathrm{exponent}(\tilde{\sigma}) & \text{otherwise} \end{cases}$
+\State $\ulp_t \leftarrow s_{\rm dir} \cdot 2^{\eta - (t - 1)}$ \Comment{Compute signed ULP at virtual precision $t$ using exponent $\eta$}
+\State $S \leftarrow \begin{cases} 2^{64} & \text{if } \eta - (t - 1) \le e_{\min} \\ 1 & \text{otherwise} \end{cases}$ \Comment{Scale subnormals to normal range}
+\State $\rho_S \leftarrow \rho \cdot S, \quad \tau_S \leftarrow \tau \cdot S, \quad \ulp_{t,S} \leftarrow \ulp_t \cdot S$
+\State Sample $z$ uniformly from $\{k2^{-r}:0\le k<2^r\}$
+\State $\pi \leftarrow \ulp_{t,S} \cdot z$ \Comment{Random threshold}
+\State $D \leftarrow (\rho_S - \pi) + \tau_S$ \Comment{Decision boundary term}
+\State $\Delta \leftarrow \begin{cases} \ulp_t & \text{if } D \cdot s_{\rm dir} \ge 0 \\ 0 & \text{otherwise} \end{cases}$
+\State \Return $\tilde{\sigma} + \Delta$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Variable-precision stochastic rounding (VPSR)}
+\label{sec:vpsr}
+
+This section presents the variable-precision stochastic rounding (VPSR) algorithm, which decouples the rounding decision from the hardware format by decomposing each exact arithmetic result onto a coarser virtual grid. We prove that the rounding decision is evaluated exactly in hardware floating point, with no extended-precision overhead.
+
+At hardware precision, the EFT of \cref{sec:background-eft} recovers the exact result $x = \sigma + \tau$ with $\sigma = \fl(x)$, and the stochastic rounding algorithm formalized by \citet{fasi2021algorithms} compares the hardware residual $\tau$ against a uniform threshold on $[0, \ulp_{\rm hw}(\sigma))$.
+
+Variable-precision stochastic rounding (VPSR) extends this algorithmic framework to a coarser virtual grid at a precision $t \le p$ instead, where $p$ is the hardware precision. Truncating the
+head to that grid, $\tilde{\sigma} = \mathrm{trunc}_t(\sigma)$, splits the
+distance from $x$ down to the virtual grid point into a virtual truncation error
+$\rho = \sigma - \tilde{\sigma}$ and the hardware residual $\tau$
+(\cref{fig:vpsr_eft}),
+\begin{equation*}
+  x = \tilde{\sigma} + \rho + \tau .
+\end{equation*}
+
+To perform ideal stochastic rounding, \cref{alg:vpsr} draws a continuous threshold
+$\pi \sim \mathcal{U}[0, \ulp_t)$ and rounds away from $\tilde\sigma$ when the
+signed threshold does not exceed the signed distance $\rho+\tau$. Fixing
+$\pi = \tfrac12\ulp_t$ instead gives untied round-to-nearest at
+precision $t$.
+
+Because hardware generators provide discrete bits rather than continuous draws, PRISM approximates the uniform distribution using $r$ random bits ($r=24$ for \code{binary32} and $r=53$ for \code{binary64}). Let $\SR_{t,r}$ denote this finite-bit implementation. This discretization introduces a negligible bias bounded by the number of random bits $r$:
+\begin{equation*}
+  \abs{\E[\SR_{t,r}(x)]-x}\le 2^{-r}\abs{\ulp_t(x)}.
+\end{equation*}
+
+Three steps that are trivial at hardware precision require care at virtual precision:
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{Two-term decision.} The relevant distance from $x$ to the virtual grid point is $\rho + \tau$, not $\tau$ alone. These terms can differ by the full hardware precision, making the sign of their floating-point sum fragile. \Cref{sec:proof} proves that evaluating $(\rho - \pi) + \tau$ in hardware arithmetic nevertheless preserves the exact sign, requiring no compensated arithmetic.
+  \item \textbf{Power-of-two boundaries.} When the rounding direction carries $x$ across a binade boundary, line~5 of \cref{alg:vpsr} selects the predecessor exponent so that $\ulp_t$ reflects the grid spacing at $x$ rather than at $\tilde{\sigma}$.
+  \item \textbf{Subnormal virtual grid.} When $\ulp_t$ is subnormal, the threshold product $\ulp_t \cdot z$ loses precision. Lines~7--8 scale all quantities by $S = 2^{64}$ (exact as a power of two) and compare in the normal range; the decision is invariant under common positive scaling.
+\end{enumerate}
+
+\subsection{Exactness of the rounding decision}
+\label{sec:proof}
+
+We assume IEEE~754 floating-point arithmetic with round-to-nearest. Let
+$\fl(x+y)$ and $\fl(x-y)$ denote floating-point addition and subtraction,
+respectively.
+
+We define the rounding direction sign $s_{\rm dir}$ (equivalently to line~4 of \cref{alg:vpsr}, noting that the $\rho = 0, \tau = 0$ case is handled on line~3):
+\[
+s_{\rm dir} = 
+\begin{cases} 
+1 & \text{if } \rho > 0 \text{ or } (\rho = 0 \text{ and } \tau > 0) \\
+-1 & \text{if } \rho < 0 \text{ or } (\rho = 0 \text{ and } \tau < 0)
+\end{cases}
+\]
+
+
+Throughout the theorem and its proof, $\ulp_{\rm hw}$ abbreviates
+$\ulp_{\rm hw}(x)$, the hardware grid spacing at $x$. This is an absolute
+spacing, not the relative ULP scale $u = 2^{1-t}$ of \cref{eq:ulp}.
+
+\begin{theorem}[Exact sign evaluation of the rounding decision]
+\label{thm:exact-sign}
+Let $\rho$, $\pi$, and $\tau$ be floating-point numbers. If
+the following properties hold:
+\begin{enumerate}
+    \item $|\tau| \le \ulp_{\rm hw}/2$
+    \item $\rho = 0$ or $|\rho| \ge \ulp_{\rm hw}$
+    \item $\rho$ and $\pi$ share the same sign
+\end{enumerate}
+Then the floating-point evaluation of the decision boundary preserves the sign:
+\[
+(\rho - \pi + \tau) \cdot s_{\rm dir} \ge 0 \iff \fl(\fl(\rho - \pi) + \tau) \cdot s_{\rm dir} \ge 0
+\]
+\end{theorem}
+
+The three hypotheses hold in \cref{alg:vpsr}: (1)~is the standard RN bound $|\tau| \le \ulp_{\rm hw}/2$; (2)~holds because truncation zeros trailing bits without changing the exponent, making $\rho$ an integer multiple of $\ulp_{\rm hw}(\sigma)$; since IEEE~754 monotonicity gives $|x| \ge 2^k \Rightarrow |\fl(x)| \ge 2^k$, the rounded value $\sigma$ cannot cross a binade boundary toward zero, so $\ulp_{\rm hw}(\sigma) \ge \ulp_{\rm hw}$; (3)~follows from $|\rho| \ge \ulp_{\rm hw} \ge 2|\tau|$, which prevents $\tau$ from flipping the sign of $\rho$, combined with the algorithm assigning $\pi$ the sign of $s_{\rm dir}$. The subnormal scaling on lines~7--8 preserves all three by multiplying distances and spacing by a common exact power of two.
+
+\begin{proof}[Proof sketch]
+We normalize the variables by the rounding direction sign $s_{\rm dir} \in \{-1, 1\}$, setting $\rho' = \rho \cdot s_{\rm dir}$, $\pi' = \pi \cdot s_{\rm dir}$, and $\tau' = \tau \cdot s_{\rm dir}$, so that the equivalence becomes $(\rho' - \pi') + \tau' \ge 0 \iff \fl(\fl(\rho' - \pi') + \tau') \ge 0$.
+
+When $\rho = 0$, the first subtraction $\fl(0 - \pi') = -\pi'$ is exact in IEEE~754 arithmetic. The decision then reduces to a single floating-point addition $\fl(-\pi' + \tau')$, whose sign matches the exact sign by monotonicity.
+
+When $\rho \ne 0$, monotonicity directly ensures the forward implication. For the backward implication, the only scenario where the signs could disagree is an artificial collapse to zero, $\fl(\fl(\rho' - \pi') + \tau') = 0$, while the exact sum is strictly negative, $(\rho' - \pi') + \tau' < 0$. Under the bounds from Hypotheses~1 and~2, such a collapse requires the intermediate difference $\fl(\rho' - \pi')$ to equal $-\tau'$, forcing $\rho'/2 \le \pi' \le 2\rho'$. This condition satisfies the hypotheses of Sterbenz's Lemma~\citep{sterbenz1974floating}, which guarantees that the floating-point subtraction $\fl(\rho' - \pi')$ is exact. Exact subtraction then yields $(\rho' - \pi') + \tau' = 0$, contradicting the assumption that the exact sum is strictly negative. Thus, no sign discrepancy can occur. The complete formal proof is deferred to \cref{app:proof-exact-sign}.
+\end{proof}
