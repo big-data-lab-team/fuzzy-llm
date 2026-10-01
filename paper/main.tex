@@ -109,44 +109,34 @@
 \maketitle
 
 \begin{abstract}%
-  Should low-precision transformer inference use stochastic rounding~(SR) or
-  round-to-nearest~(RN)? The answer depends on \emph{where} in the network
-  you look. We isolate this effect by holding the numerical format fixed and
-  varying only the rounding rule at individual operation sites.
+Should low-precision transformer inference use stochastic rounding~(SR) or
+round-to-nearest~(RN)? Holding the numerical format fixed and varying only the
+rounding rule at operation sites, we find that the answer is site-dependent. 
 
-  To enable experiments at freely chosen precisions, we extend PRISM, a
-  vectorized CPU rounding library, to arbitrary virtual precision via a new
-  variable-precision stochastic rounding~(VPSR) algorithm, and prove that the
-  rounding decision is evaluated exactly in hardware floating point.
+Two partial analyses account for this. A probabilistic forward- error bound for
+linear projections shows that SR's error envelope grows as
+$\mathcal{O}(\sqrt{n}\,u)$ in the reduction length $n$, against
+$\mathcal{O}(n\,u)$ for RN, a gap widest in the long multilayer perceptron (MLP)
+down-projection. A second-order decomposition of the expected cross- entropy
+change at the softmax separates signed drift, drift curvature, and a
+Fisher-weighted variance penalty: MLP noise is mostly a uniform logit shift, to
+which the softmax is invariant, whereas head noise is non-uniform. 
 
-  We develop two analyses that offer complementary insight into the site-level
-  trade-off, without fully modelling end-to-end error propagation.  First, a
-  probabilistic forward-error bound for linear projections shows that SR's error
-  envelope grows as $\mathcal{O}(\sqrt{n}\,u)$ in the reduction length $n$,
-  against $\mathcal{O}(n\,u)$ for RN, a gap that widens rapidly at low
-  precision and is most pronounced in the long multilayer perceptron (MLP)
-  down-projection.  Second, a second-order decomposition of the expected cross-entropy
-  loss change at the output softmax into signed drift, drift curvature, and a
-  variance penalty weighted by the Fisher information matrix reveals why the
-  two sites behave oppositely: MLP noise is predominantly a uniform logit shift,
-  to which the softmax is insensitive, so SR's variance is largely
-  discounted; head noise is genuinely non-uniform across the vocabulary and is
-  not.
-
-  These analyses are consistent with the observations. On DistilGPT-2 at \(t=6\)
-  significand bits, SR in the MLP raises the perplexity to
-  $\times1.15$ the full-precision reference, compared with $\times2.21$ for RN.
-  At the language-model head, the ordering reverses: SR's excess loss is driven
-  by its non-uniform variance penalty, whereas deterministic RN carries zero
-  variance penalty. In a mixed-precision configuration (with MLP output at
-  $t=6$), assigning SR to the MLP and RN to the head brings perplexity within
-  $\times1.10$ of the full-precision reference, a $28\%$ reduction over
-  matched-bit RN.
+To test this,
+we extend PRISM, a vectorized CPU rounding library, with a variable-precision SR
+algorithm proven exact in hardware floating point. On DistilGPT-2 at \(t=6\)
+significand bits, SR in the MLP raises perplexity to $\times1.15$ the
+full-precision reference, against $\times2.21$ for RN. At the language-model
+head the ordering reverses, since only SR incurs the variance penalty. With the
+MLP output at $t=6$, assigning SR to the MLP and RN to the head brings
+perplexity within $\times1.10$ of the reference, $28\%$ below matched-bit RN.
 \end{abstract}
 
 \begin{keywords}
   stochastic rounding, low-precision arithmetic, transformer inference, floating-point emulation, large language models
 \end{keywords}
+
+
 
 \input{intro.tex}
 
