@@ -1,6 +1,7 @@
 # Stochastic Rounding in Low-Precision Transformer Inference
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23066028.svg)](https://doi.org/10.5281/zenodo.23066028)
+[![Download PDF](https://img.shields.io/badge/Paper-Download%20PDF-B31B1B?logo=adobeacrobatreader&logoColor=white)](https://big-data-lab-team.github.io/fuzzy-llm/paper.pdf)
 
 Code, data and manuscript for *Stochastic Rounding in Low-Precision Transformer
 Inference: A Variable-Precision Emulation Study of a Small GPT-2*, by Yohan
