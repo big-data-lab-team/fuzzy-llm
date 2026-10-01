@@ -1,5 +1,7 @@
 # Stochastic Rounding in Low-Precision Transformer Inference
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23066028.svg)](https://doi.org/10.5281/zenodo.23066028)
+
 Code, data and manuscript for *Stochastic Rounding in Low-Precision Transformer
 Inference: A Variable-Precision Emulation Study of a Small GPT-2*, by Yohan
 Chatelain and Pablo de Oliveira Castro.
@@ -9,6 +11,10 @@ significand precision, site by site, in DistilGPT-2. Low-precision arithmetic is
 emulated in PyTorch compiled with [Verificarlo](https://github.com/verificarlo/verificarlo),
 whose [PRISM](https://github.com/verificarlo/prism) backend rounds every
 floating-point operation to a virtual precision set at run time.
+
+Every release of this repository is archived on Zenodo under the DOI
+[10.5281/zenodo.23066028](https://doi.org/10.5281/zenodo.23066028), which
+resolves to the latest version.
 
 ## Contents
 
